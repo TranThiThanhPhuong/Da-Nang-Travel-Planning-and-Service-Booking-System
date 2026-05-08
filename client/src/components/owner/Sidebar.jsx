@@ -1,5 +1,5 @@
 import React from 'react'
-import { Link, NavLink } from 'react-router-dom'
+import { Link, NavLink, useLocation } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import {
     LayoutDashboard, List, PlusSquare, CalendarDays, ClipboardList, CreditCard, Settings
@@ -16,6 +16,7 @@ const Sidebar = () => {
         { name: 'Gói dịch vụ (SaaS)', path: '/owner/subscription', icon: <CreditCard size={20} /> },
         { name: 'Cài đặt thanh toán', path: '/owner/settings', icon: <Settings size={20} /> },
     ]
+    const location = useLocation()
 
     return (
         <div className="w-64 bg-white/90 backdrop-blur-[10px] border-r border-white hidden md:flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-20 font-jakarta">
@@ -38,12 +39,16 @@ const Sidebar = () => {
                             key={index}
                             to={item.path}
                             end={item.path === '/owner'}
-                            className={({ isActive }) =>
-                                `flex items-center px-4 py-3 transition-all duration-300 ${isActive
+                            className={() => {
+                                const isActive =
+                                    item.path === '/owner'
+                                    ? location.pathname === '/owner'
+                                    : location.pathname.startsWith(item.path) || (item.path === '/owner/add-service' && location.pathname.startsWith('/owner/edit-service'));
+                                return `flex items-center px-4 py-3 transition-all duration-300 ${
+                                    isActive
                                     ? 'bg-[#004D40] text-white rounded-tr-[30px] rounded-bl-[30px] rounded-tl-md rounded-br-md shadow-md shadow-[#004D40]/20 font-bold'
-                                    : 'text-gray-500 hover:bg-[#E0F2F1] hover:text-[#004D40] rounded-tr-[20px] rounded-bl-[20px] rounded-tl-sm rounded-br-sm font-medium'
-                                }`
-                            }
+                                    : 'text-gray-500 hover:bg-[#E0F2F1] hover:text-[#004D40] rounded-tr-[20px] rounded-bl-[20px] rounded-tl-sm rounded-br-sm font-medium'}`
+                            }}
                         >
                             {({ isActive }) => (
                                 <>

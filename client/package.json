@@ -12,13 +12,15 @@
   "dependencies": {
     "@clerk/clerk-react": "^5.61.6",
     "@tailwindcss/vite": "^4.2.1",
-    "axios": "^1.15.2",
+    "axios": "^1.16.0",
     "framer-motion": "^12.38.0",
+    "leaflet": "^1.9.4",
     "lucide-react": "^1.8.0",
     "react": "^19.2.0",
     "react-datepicker": "^9.1.0",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.72.1",
+    "react-leaflet": "^5.0.0",
     "react-router-dom": "^7.13.1",
     "recharts": "^3.8.1",
     "tailwindcss": "^4.2.1"

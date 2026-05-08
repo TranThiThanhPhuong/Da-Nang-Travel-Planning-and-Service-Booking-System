@@ -1,4 +1,5 @@
 import Service from '../models/Service.js';
+import User from '../models/User.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import ApiError from '../utils/ApiError.js';
 import { removeVietnameseTones } from '../utils/stringUtils.js';
@@ -81,4 +82,233 @@ export const getServices = async (req, res, next) => {
     } catch (error) {
         next(error);
     }
+};
+
+// @desc    Create new service
+// @route   POST /api/services
+// @access  Private/Owner
+export const createService = async (req, res) => {
+  try {
+    const {
+      name,
+      type,
+      description,
+      pricePerUnit,
+      discount,
+      address,
+      coordinates,
+      thumbnail,
+      images,
+      features,
+    } = req.body;
+
+    if (!name || !type || !description || !pricePerUnit || !address || !thumbnail) {
+      return res.status(400).json({
+        success: false,
+        message: 'Vui lòng điền đầy đủ thông tin bắt buộc',
+      });
+    }
+
+    if (!coordinates || coordinates.length !== 2) {
+      return res.status(400).json({
+        success: false,
+        message: 'Tọa độ không hợp lệ',
+      });
+    }
+
+    const service = await Service.create({
+      ownerId: req.user._id,
+      name,
+      type,
+      description,
+      pricePerUnit,
+      discount: discount || 0,
+      location: {
+        type: 'Point',
+        coordinates: coordinates,
+      },
+      address,
+      thumbnail,
+      images: images || [],
+      features: features || [],
+      approvalStatus: 'PENDING',
+    });
+
+    res.status(201).json({
+      success: true,
+      data: service,
+      message: 'Tạo dịch vụ thành công. Đang chờ Admin duyệt.',
+    });
+  } catch (error) {
+    console.error('Create service error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// @desc    Get all services of current owner
+// @route   GET /api/services/my
+// @access  Private/Owner
+export const getMyServices = async (req, res) => {
+  try {
+    const { approvalStatus, type, search } = req.query;
+
+    const filter = { ownerId: req.user._id };
+
+    if (approvalStatus && approvalStatus !== 'ALL') {
+      filter.approvalStatus = approvalStatus;
+    }
+
+    if (type && type !== 'ALL') {
+      filter.type = type;
+    }
+
+    if (search) {
+      filter.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { address: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const services = await Service.find(filter)
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      success: true,
+      count: services.length,
+      data: services,
+    });
+  } catch (error) {
+    console.error('Lấy dịch vụ của người dùng:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// @desc    Get single service
+// @route   GET /api/services/:id
+// @access  Private/Owner
+export const getServiceById = async (req, res) => {
+  try {
+    const service = await Service.findOne({
+      _id: req.params.id,
+      ownerId: req.user._id,
+    });
+
+    if (!service) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy dịch vụ',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: service,
+    });
+  } catch (error) {
+    console.error('Get service error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+// @desc    Update service
+// @route   PUT /api/services/:id
+// @access  Private/Owner
+export const updateService = async (req, res) => {
+  try {
+    let service = await Service.findById(req.params.id);
+
+    if (!service) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy dịch vụ',
+      });
+    }
+
+    if (service.ownerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không có quyền chỉnh sửa dịch vụ này',
+      });
+    }
+
+    // Prevent editing if APPROVED (optional - tùy business logic)
+    // if (service.approvalStatus === 'APPROVED') {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: 'Không thể sửa dịch vụ đã được duyệt',
+    //   });
+    // }
+
+    if (req.body.coordinates) {
+      req.body.location = {
+        type: 'Point',
+        coordinates: req.body.coordinates,
+      };
+      delete req.body.coordinates;
+    }
+
+    service = await Service.findByIdAndUpdate(
+      req.params.id,
+      { $set: req.body },
+      { new: true, runValidators: true }
+    );
+
+    res.json({
+      success: true,
+      data: service,
+      message: 'Cập nhật dịch vụ thành công',
+    });
+  } catch (error) {
+    console.error('Update service error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+// @desc    Delete service (Soft delete - set HIDDEN)
+// @route   DELETE /api/services/:id
+// @access  Private/Owner
+export const deleteService = async (req, res) => {
+  try {
+    const service = await Service.findById(req.params.id);
+
+    if (!service) {
+      return res.status(404).json({
+        success: false,
+        message: 'Không tìm thấy dịch vụ',
+      });
+    }
+
+    if (service.ownerId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Bạn không có quyền xóa dịch vụ này',
+      });
+    }
+
+    service.approvalStatus = 'HIDDEN';
+    await service.save();
+
+    res.json({
+      success: true,
+      message: 'Đã xóa dịch vụ',
+    });
+  } catch (error) {
+    console.error('Delete service error:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
 };

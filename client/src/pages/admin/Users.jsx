@@ -15,8 +15,8 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import mockUsers from "./mockdatas/mockUsers";
-import EmptyState from "./common/Empty";
-import Pagination from "./common/Pagination";
+import EmptyState from "../common/Empty";
+import Pagination from "../common/Pagination";
 
 const UserManagement = () => {
   const [search, setSearch] = useState("");

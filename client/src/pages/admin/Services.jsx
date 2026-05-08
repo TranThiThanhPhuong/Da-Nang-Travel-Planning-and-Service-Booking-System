@@ -10,11 +10,11 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 import mockServices from "./mockdatas/mockServices";
-import EmptyState from "./common/Empty";
-import Pagination from "./common/Pagination";
-import ConfirmModal from "./modals/ConfirmModal";
-import RejectModal from "./modals/RejectModal";
-import ImageZoomModal from "./modals/ImageZoomModal";
+import EmptyState from "../common/Empty";
+import Pagination from "../common/Pagination";
+import ConfirmModal from "../common/ConfirmModal";
+import RejectModal from "../common/RejectModal";
+import ImageZoomModal from "../common/ImageZoomModal";
 import ServiceDetailModal from "./modals/ServiceDetailModal";
 
 const Services = () => {

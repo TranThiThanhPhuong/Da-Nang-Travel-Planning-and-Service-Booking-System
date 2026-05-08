@@ -81,15 +81,14 @@ serviceSchema.pre('save', function (next) {
     if (this.pricePerUnit != null && this.discount != null) {
         this.finalPrice = this.pricePerUnit * (1 - this.discount / 100);
     }
-    next();
 
     if (this.name || this.address) {
         const combinedString = `${this.name || ''} ${this.address || ''}`;
         this.searchString = removeVietnameseTones(combinedString);
     }
-    next();
-});
 
+    next(); // CHỈ GỌI 1 LẦN Ở CUỐI
+});
 serviceSchema.pre('findOneAndUpdate', function (next) {
     const update = this.getUpdate();
     const price = update.pricePerUnit ?? update.$set?.pricePerUnit;
