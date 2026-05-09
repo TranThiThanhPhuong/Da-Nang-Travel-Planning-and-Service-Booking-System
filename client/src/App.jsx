@@ -112,6 +112,7 @@ const App = () => {
             <Route index element={<Dashboard />} />
             <Route path="list-service" element={<ListService />} />
             <Route path="add-service" element={<AddService />} />
+            <Route path="edit-service/:id" element={<AddService />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="bookings" element={<Bookings />} />
             <Route path="subscription" element={<Subscription />} />

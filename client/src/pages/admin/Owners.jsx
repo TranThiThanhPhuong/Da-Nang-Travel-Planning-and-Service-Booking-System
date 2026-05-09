@@ -13,11 +13,11 @@ import {
 import { motion } from "framer-motion";
 import { useAuth } from "@clerk/clerk-react";
 import axios from "axios";
-import EmptyState from "./common/Empty";
-import Pagination from "./common/Pagination";
-import ConfirmModal from "./modals/ConfirmModal";
-import RejectModal from "./modals/RejectModal";
-import ImageZoomModal from "./modals/ImageZoomModal";
+import EmptyState from "../common/Empty";
+import Pagination from "../common/Pagination";
+import ConfirmModal from "../common/ConfirmModal";
+import RejectModal from "../common/RejectModal";
+import ImageZoomModal from "../common/ImageZoomModal";
 import OwnerDetailModal from "./modals/OwnerDetailModal";
 
 const Owners = () => {
