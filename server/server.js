@@ -9,6 +9,7 @@ import authRoutes from './routes/authRoutes.js';
 import ownerApplicationRoutes from './routes/ownerApplicationRoutes.js';
 import serviceRoutes from './routes/serviceRoutes.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
+import tripRoutes from './routes/tripRoutes.js';
 import errorHandler from './middlewares/errorHandler.js';
 import ApiError from './utils/ApiError.js';
 
@@ -30,6 +31,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/owner-applications', ownerApplicationRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/trips', tripRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {
