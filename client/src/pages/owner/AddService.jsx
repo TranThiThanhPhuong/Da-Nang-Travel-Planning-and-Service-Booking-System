@@ -210,6 +210,20 @@ const AddService = () => {
         setLoading(false);
         return;
       }
+      const selectedDefaultFeatures = (data.features || []).filter((f) =>
+        DEFAULT_FEATURES.includes(f),
+      );
+
+      const customFeatures = customFeature
+        ? customFeature
+            .split(",")
+            .map((item) => item.trim())
+            .filter(Boolean)
+        : [];
+
+      const uniqueFeatures = [
+        ...new Set([...selectedDefaultFeatures, ...customFeatures]),
+      ];
       const serviceData = {
         name: data.name,
         type: data.type,
@@ -220,15 +234,7 @@ const AddService = () => {
         coordinates: [Number(data.lng), Number(data.lat)],
         thumbnail: thumbnailUrl,
         images: uploadedImages.slice(1), // Ảnh 2-4
-        features: [
-          ...(data.features || []),
-          ...(customFeature
-            ? customFeature
-                .split(",")
-                .map((item) => item.trim())
-                .filter(Boolean)
-            : []),
-        ],
+        features: uniqueFeatures,
       };
 
       // ⭐ 3. CREATE OR UPDATE
