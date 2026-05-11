@@ -1,57 +1,122 @@
-import React, { useState, useEffect, useMemo } from "react";
-import {
-  Search,
-  Eye,
-  Lock,
-  CheckCircle,
-  Shield,
-  Calendar,
-  Mail,
-  User as UserIcon,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Filter,
-} from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Search, Eye, Lock, CheckCircle, X, Filter, Loader2, Shield } from "lucide-react";
 import { motion } from "framer-motion";
-import mockUsers from "./mockdatas/mockUsers";
+import { useAuth } from "@clerk/clerk-react";
+import { adminService } from "../../services/adminService";
 import EmptyState from "../common/Empty";
 import Pagination from "../common/Pagination";
 
 const UserManagement = () => {
+  const { getToken } = useAuth();
+
+  // --- 1. STATE QUẢN LÝ DỮ LIỆU ---
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [totalItems, setTotalItems] = useState(0);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // --- 2. STATE BỘ LỌC & PHÂN TRANG ---
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("ALL");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [page, setPage] = useState(1);
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [confirmUser, setConfirmUser] = useState(null);
-  const [confirmAction, setConfirmAction] = useState(null);
   const pageSize = 5;
 
-  const filtered = useMemo(() => {
-    const keyword = search.toLowerCase();
+  // --- 3. STATE UI (MODAL) ---
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
-    return mockUsers.filter((user) => {
-      const matchSearch =
-        user.fullName.toLowerCase().includes(keyword) ||
-        user.email.toLowerCase().includes(keyword);
+  // --- LOGIC DEBOUNCE TÌM KIẾM ---
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
 
-      const matchStatus =
-        statusFilter === "ALL" || user.status === statusFilter;
-      const matchType = roleFilter === "ALL" || user.role === roleFilter;
-
-      return matchSearch && matchStatus && matchType;
-    });
-  }, [search, statusFilter, roleFilter]);
-
-  // PAGINATION
-  const totalPages = Math.ceil(filtered.length / pageSize);
-  const paginatedData = filtered.slice((page - 1) * pageSize, page * pageSize);
-
-  // Reset page khi filter thay đổi
+  // Reset trang về 1 khi thay đổi bộ lọc
   useEffect(() => {
     setPage(1);
-  }, [search, statusFilter, roleFilter]);
+  }, [debouncedSearch, roleFilter, statusFilter]);
+
+  // --- LOGIC FETCH DỮ LIỆU ---
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const token = await getToken();
+      const params = {
+        page,
+        limit: pageSize,
+      };
+
+      if (debouncedSearch) params.keyword = debouncedSearch;
+      if (roleFilter !== "ALL") params.role = roleFilter;
+      if (statusFilter !== "ALL") params.status = statusFilter;
+
+      const res = await adminService.getUsers(token, params);
+
+      if (res.success) {
+        setUsers(res.data);
+        setTotalItems(res.totalItems || 0);
+        setTotalPages(res.totalPages || 1);
+      }
+    } catch (error) {
+      console.error("Lỗi tải danh sách người dùng:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Gọi lại API mỗi khi params thay đổi
+  useEffect(() => {
+    fetchUsers();
+  }, [page, debouncedSearch, roleFilter, statusFilter]);
+
+  // --- LOGIC HÀNH ĐỘNG ---
+  const handleToggleStatus = async (userId, currentStatus) => {
+    const newStatus = currentStatus === "ACTIVE" ? "BLOCKED" : "ACTIVE";
+    const confirmMsg = newStatus === "BLOCKED"
+      ? "Bạn có chắc chắn muốn KHÓA tài khoản này?"
+      : "Bạn muốn MỞ KHÓA tài khoản này?";
+
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      const token = await getToken();
+      const res = await adminService.updateUserStatus(token, userId, newStatus);
+      if (res.success) {
+        fetchUsers(); // Tải lại danh sách sau khi update thành công
+      } else {
+        alert(res.message || "Có lỗi xảy ra");
+      }
+    } catch (error) {
+      console.error("Lỗi cập nhật trạng thái:", error);
+      alert("Có lỗi xảy ra khi cập nhật!");
+    }
+  };
+
+  const handleViewDetails = async (userId) => {
+    setLoadingDetail(true);
+    // Mở modal dạng loading tạm thời
+    setSelectedUser({ _id: userId, isLoading: true });
+
+    try {
+      const token = await getToken();
+      const res = await adminService.getUserDetails(token, userId);
+      if (res.success) {
+        setSelectedUser(res.data);
+      } else {
+        setSelectedUser(null);
+        alert(res.message);
+      }
+    } catch (error) {
+      console.error("Lỗi tải chi tiết:", error);
+      setSelectedUser(null);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 pb-10 font-jakarta">
@@ -65,20 +130,17 @@ const UserManagement = () => {
         <div className="p-5 border-b border-gray-100 flex flex-col md:flex-row gap-4 justify-between bg-white/40">
           {/* SEARCH */}
           <div className="relative md:w-120">
-            <Search
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-[#004D40]/50"
-              size={20}
-            />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#004D40]/50" size={20} />
             <input
               type="text"
-              placeholder="Tìm kiếm người dùng..."
+              placeholder="Tìm kiếm theo tên, email..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full pl-12 pr-4 py-2.5 bg-white/60 border border-[#E0F2F1] rounded-tr-xl rounded-bl-xl rounded-tl-md rounded-br-md focus:ring-2 focus:ring-[#004D40]/20 outline-none text-sm font-medium text-[#004D40] placeholder-[#004D40]/40 transition-all"
             />
           </div>
 
-          {/* STATUS FILTER */}
+          {/* STATUS & ROLE FILTERS */}
           <div className="flex items-center gap-3">
             <div className="bg-[#E0F2F1] p-2 rounded-lg text-[#004D40]">
               <Filter size={18} />
@@ -93,7 +155,6 @@ const UserManagement = () => {
               <option value="BLOCKED">Đã khóa</option>
             </select>
 
-            {/* ROLE FILTER */}
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
@@ -107,15 +168,20 @@ const UserManagement = () => {
         </div>
       </motion.div>
 
-      {/* TABLE */}
+      {/* BẢNG DỮ LIỆU */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="bg-white/80 backdrop-blur-[10px] 
-      rounded-tr-[40px] rounded-bl-[40px] rounded-tl-2xl rounded-br-2xl 
-      border border-white/60 shadow overflow-hidden"
+        className="bg-white/80 backdrop-blur-[10px] rounded-tr-[40px] rounded-bl-[40px] rounded-tl-2xl rounded-br-2xl border border-white/60 shadow overflow-hidden relative min-h-[300px]"
       >
+        {/* Loading Overlay */}
+        {loading && (
+          <div className="absolute inset-0 z-10 bg-white/50 backdrop-blur-sm flex items-center justify-center">
+            <Loader2 className="animate-spin text-[#004D40]" size={40} />
+          </div>
+        )}
+
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-[#004D40]/5 text-[#004D40] text-xs uppercase">
@@ -128,21 +194,18 @@ const UserManagement = () => {
           </thead>
 
           <tbody className="divide-y divide-gray-100">
-            {paginatedData.map((user) => (
-              <tr key={user.id} className="hover:bg-[#E0F2F1]/40 transition">
-                {/* USER */}
+            {users.map((user) => (
+              <tr key={user._id} className="hover:bg-[#E0F2F1]/40 transition">
+                {/* USER INFO */}
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-3">
                     <img
-                      src={user.avatar}
-                      className="w-11 h-11 
-                      rounded-tr-xl rounded-bl-xl rounded-tl-md rounded-br-md
-                      border border-white shadow-sm"
+                      src={user.avatar || 'https://i.pinimg.com/736x/91/53/5b/91535bc90a800b532116028457cdd0f9.jpg'}
+                      alt="avatar"
+                      className="w-11 h-11 object-cover rounded-tr-xl rounded-bl-xl rounded-tl-md rounded-br-md border border-white shadow-sm"
                     />
                     <div>
-                      <p className="font-bold text-[#004D40]">
-                        {user.fullName}
-                      </p>
+                      <p className="font-bold text-[#004D40]">{user.fullName}</p>
                       <p className="text-xs text-gray-500">{user.email}</p>
                     </div>
                   </div>
@@ -151,18 +214,17 @@ const UserManagement = () => {
                 {/* ROLE */}
                 <td className="px-6 py-4">
                   <span className="flex items-center gap-1 text-xs font-bold text-[#004D40]">
-                    {user.role === "OWNER" ? "Chủ dịch vụ" : "Người dùng"}
+                    {user.role === "OWNER" ? "Chủ dịch vụ" : user.role === "ADMIN" ? "Quản trị viên" : "Người dùng"}
                   </span>
                 </td>
 
                 {/* STATUS */}
                 <td className="px-6 py-4">
                   <span
-                    className={`px-3 py-1 rounded-full text-xs font-bold ${
-                      user.status === "ACTIVE"
-                        ? "bg-[#E0F2F1] text-[#004D40]"
-                        : "bg-red-100 text-red-700 border border-red-200"
-                    }`}
+                    className={`px-3 py-1 rounded-full text-xs font-bold ${user.status === "ACTIVE"
+                      ? "bg-[#E0F2F1] text-[#004D40]"
+                      : "bg-red-100 text-red-700 border border-red-200"
+                      }`}
                   >
                     {user.status === "ACTIVE" ? "Hoạt động" : "Đã khóa"}
                   </span>
@@ -170,39 +232,39 @@ const UserManagement = () => {
 
                 {/* DATE */}
                 <td className="px-6 py-4 text-gray-500 text-xs">
-                  {user.createdAt}
+                  {new Date(user.createdAt).toLocaleDateString('vi-VN')}
                 </td>
 
                 {/* ACTION */}
                 <td className="px-6 py-4">
                   <div className="flex justify-end gap-2">
                     <button
-                      onClick={() => setSelectedUser(user)}
-                      className="p-2 text-[#004D40] hover:bg-[#E0F2F1] rounded-lg"
+                      onClick={() => handleViewDetails(user._id)}
+                      className="p-2 text-[#004D40] hover:bg-[#E0F2F1] rounded-lg transition"
+                      title="Xem chi tiết"
                     >
                       <Eye size={18} />
                     </button>
 
-                    {user.status === "ACTIVE" ? (
-                      <button
-                        onClick={() => {
-                          setConfirmUser(user);
-                          setConfirmAction("LOCK");
-                        }}
-                        className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
-                      >
-                        <Lock size={18} />
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() => {
-                          setConfirmUser(user);
-                          setConfirmAction("UNLOCK");
-                        }}
-                        className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
-                      >
-                        <CheckCircle size={18} />
-                      </button>
+                    {/* Không cho phép khóa tài khoản ADMIN (bảo vệ an toàn) */}
+                    {user.role !== "ADMIN" && (
+                      user.status === "ACTIVE" ? (
+                        <button
+                          onClick={() => handleToggleStatus(user._id, user.status)}
+                          className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+                          title="Khóa tài khoản"
+                        >
+                          <Lock size={18} />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => handleToggleStatus(user._id, user.status)}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition"
+                          title="Mở khóa tài khoản"
+                        >
+                          <CheckCircle size={18} />
+                        </button>
+                      )
                     )}
                   </div>
                 </td>
@@ -212,166 +274,143 @@ const UserManagement = () => {
         </table>
       </motion.div>
 
-      {/* MODAL DETAIL */}
+      {/* MODAL CHI TIẾT NGƯỜI DÙNG */}
       {selectedUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          {/* overlay */}
-          <div
-            className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
-            onClick={() => setSelectedUser(null)}
-          />
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => setSelectedUser(null)} />
 
-          {/* modal */}
-          <div
-            className="relative w-full max-w-3xl 
-    bg-white/90 backdrop-blur-xl 
-    rounded-tr-[40px] rounded-bl-[40px] rounded-tl-2xl rounded-br-2xl
-    border border-white/60 shadow-[0_20px_60px_rgba(0,0,0,0.2)]
-    animate-in fade-in zoom-in duration-300"
-          >
-            {/* HEADER */}
-            <div className="flex justify-between items-center px-6 py-5 border-b border-gray-100">
-              <h3 className="text-xl font-bold text-[#004D40]">
-                Chi tiết người dùng
-              </h3>
-              <button
-                onClick={() => setSelectedUser(null)}
-                className="p-2 rounded-lg hover:bg-gray-100 transition"
-              >
-                <X size={20} />
-              </button>
-            </div>
+          <div className="relative w-full max-w-3xl bg-white/90 backdrop-blur-xl rounded-tr-[40px] rounded-bl-[40px] rounded-tl-2xl rounded-br-2xl border border-white/60 shadow-[0_20px_60px_rgba(0,0,0,0.2)] animate-in fade-in zoom-in duration-300">
 
-            {/* BODY */}
-            <div className="grid grid-cols-1 md:grid-cols-2">
-              {/* LEFT */}
-              <div className="p-6 space-y-6">
-                {/* avatar */}
-                <div className="flex items-center gap-4">
-                  <img
-                    src={selectedUser.avatar}
-                    className="w-20 h-20 
-              rounded-tr-xl rounded-bl-xl rounded-tl-md rounded-br-md 
-              border border-white shadow"
-                  />
-                  <div>
-                    <h4 className="text-lg font-bold text-[#004D40]">
-                      {selectedUser.fullName}
-                    </h4>
-                    <p className="text-sm text-gray-500">
-                      {selectedUser.email}
-                    </p>
-                  </div>
-                </div>
-
-                {/* info */}
-                <div className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Vai trò</span>
-                    <span className="font-bold text-[#004D40]">
-                      {selectedUser.role}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Trạng thái</span>
-                    <span
-                      className={`font-bold ${
-                        selectedUser.status === "ACTIVE"
-                          ? "text-green-600"
-                          : "text-red-500"
-                      }`}
-                    >
-                      {selectedUser.status}
-                    </span>
-                  </div>
-
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">Ngày tạo</span>
-                    <span className="font-medium text-[#004D40]">
-                      {selectedUser.createdAt}
-                    </span>
-                  </div>
-                </div>
+            {/* Nếu đang loading chi tiết */}
+            {selectedUser.isLoading ? (
+              <div className="flex flex-col items-center justify-center h-64">
+                <Loader2 className="animate-spin text-[#004D40] mb-4" size={40} />
+                <p className="text-[#004D40] font-bold">Đang tải dữ liệu...</p>
               </div>
+            ) : (
+              <>
+                {/* HEADER MODAL */}
+                <div className="flex justify-between items-center px-6 py-5 border-b border-gray-100">
+                  <h3 className="text-xl font-bold text-[#004D40]">Chi tiết người dùng</h3>
+                  <button onClick={() => setSelectedUser(null)} className="p-2 rounded-lg hover:bg-gray-100 transition">
+                    <X size={20} />
+                  </button>
+                </div>
 
-              {/* RIGHT */}
-              <div className="p-6 border-l border-gray-100 space-y-6">
-                {selectedUser.role === "OWNER" ? (
-                  <>
-                    {/* BUSINESS CARD */}
-                    <div
-                      className="bg-[#F5F5F5] p-4 
-              rounded-tr-xl rounded-bl-xl rounded-tl-md rounded-br-md"
-                    >
-                      <p className="text-xs text-gray-400 mb-1">Doanh nghiệp</p>
-                      <p className="font-bold text-[#004D40]">
-                        Homestay Mây Trắng
-                      </p>
-                      <p className="text-sm text-gray-500">Đà Nẵng</p>
-                      <span className="text-[10px] font-bold text-orange-500 mt-2 inline-block">
-                        PENDING
-                      </span>
-                    </div>
-
-                    {/* SUBSCRIPTION (highlight) */}
-                    <div
-                      className="bg-gradient-to-br from-[#004D40] to-[#00332A] 
-              text-white p-5 
-              rounded-tr-[30px] rounded-bl-[30px] rounded-tl-xl rounded-br-xl
-              shadow-lg"
-                    >
-                      <p className="text-xs opacity-70">Gói hiện tại</p>
-                      <h4 className="text-lg font-bold mt-1">Gói VIP</h4>
-
-                      <div className="mt-3 text-sm space-y-1">
-                        <p>Hết hạn: 30/12/2026</p>
-                        <p>Thanh toán: 499.000đ</p>
+                {/* BODY MODAL */}
+                <div className="grid grid-cols-1 md:grid-cols-2">
+                  {/* LEFT: INFO CƠ BẢN */}
+                  <div className="p-6 space-y-6">
+                    <div className="flex items-center gap-4">
+                      <img
+                        src={selectedUser.avatar || 'https://i.pinimg.com/736x/91/53/5b/91535bc90a800b532116028457cdd0f9.jpg'}
+                        alt="avatar"
+                        className="w-20 h-20 object-cover rounded-tr-xl rounded-bl-xl rounded-tl-md rounded-br-md border border-white shadow"
+                      />
+                      <div>
+                        <h4 className="text-lg font-bold text-[#004D40]">{selectedUser.fullName}</h4>
+                        <p className="text-sm text-gray-500">{selectedUser.email}</p>
                       </div>
-
-                      <span className="mt-3 inline-block bg-white/20 px-3 py-1 rounded-full text-xs font-bold">
-                        ACTIVE
-                      </span>
                     </div>
-                  </>
-                ) : (
-                  <div className="text-center text-gray-400 text-sm py-10">
-                    Không có dữ liệu nâng cao
-                  </div>
-                )}
-              </div>
-            </div>
 
-            {/* FOOTER */}
-            <div className="flex justify-end px-6 py-4 border-t border-gray-100">
-              <button
-                onClick={() => setSelectedUser(null)}
-                className="px-5 py-2 bg-[#004D40] text-white rounded-xl font-bold hover:bg-[#00332A]"
-              >
-                Đóng
-              </button>
-            </div>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Vai trò</span>
+                        <span className="font-bold text-[#004D40]">{selectedUser.role}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Trạng thái</span>
+                        <span className={`font-bold ${selectedUser.status === "ACTIVE" ? "text-green-600" : "text-red-500"}`}>
+                          {selectedUser.status}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Ngày tham gia</span>
+                        <span className="font-medium text-[#004D40]">
+                          {new Date(selectedUser.createdAt).toLocaleDateString('vi-VN')}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">Clerk ID</span>
+                        <span className="font-medium text-gray-500 text-xs truncate max-w-[150px]">
+                          {selectedUser.clerkId}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* RIGHT: DỮ LIỆU SAAS (Chỉ hiện khi là OWNER) */}
+                  <div className="p-6 border-l border-gray-100 space-y-6">
+                    {selectedUser.role === "OWNER" ? (
+                      <>
+                        {/* BUSINESS CARD */}
+                        <div className="bg-[#F5F5F5] p-4 rounded-tr-xl rounded-bl-xl rounded-tl-md rounded-br-md">
+                          <p className="text-xs text-gray-400 mb-1">Doanh nghiệp</p>
+                          <p className="font-bold text-[#004D40] truncate">
+                            {selectedUser.businessDetails?.businessName || "Chưa cập nhật tên DN"}
+                          </p>
+                          <p className="text-sm text-gray-500 truncate mt-1">
+                            {selectedUser.businessDetails?.businessAddress || "Chưa cập nhật địa chỉ"}
+                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded-sm ${selectedUser.businessDetails?.applicationStatus === 'APPROVED' ? 'bg-green-100 text-green-700' :
+                              selectedUser.businessDetails?.applicationStatus === 'PENDING' ? 'bg-orange-100 text-orange-600' : 'bg-gray-200 text-gray-600'
+                              }`}>
+                              {selectedUser.businessDetails?.applicationStatus || "NO DATA"}
+                            </span>
+                            <span className="text-xs font-semibold text-gray-500">
+                              Đã đăng: {selectedUser.totalServices || 0} dịch vụ
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* SUBSCRIPTION SAAS */}
+                        <div className="bg-gradient-to-br from-[#004D40] to-[#00332A] text-white p-5 rounded-tr-[30px] rounded-bl-[30px] rounded-tl-xl rounded-br-xl shadow-lg">
+                          <p className="text-xs opacity-70">Gói SaaS hiện tại</p>
+                          <h4 className="text-lg font-bold mt-1 uppercase">GÓI {selectedUser.currentPackage || 'STARTER'}</h4>
+
+                          <div className="mt-3 text-sm space-y-1">
+                            <p>Trạng thái:
+                              <span className={`ml-2 font-bold ${selectedUser.subscriptionStatus === 'EXPIRED' ? 'text-red-400' : 'text-green-300'}`}>
+                                {selectedUser.subscriptionStatus || 'ACTIVE'}
+                              </span>
+                            </p>
+                            {selectedUser.subscriptionEndDate && (
+                              <p>Hết hạn: {new Date(selectedUser.subscriptionEndDate).toLocaleDateString('vi-VN')}</p>
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full text-center text-gray-400 text-sm py-10">
+                        <Shield className="mb-2 opacity-30" size={40} />
+                        <p>Tài khoản người dùng tiêu chuẩn</p>
+                        <p className="text-xs mt-1">Không có dữ liệu kinh doanh / SaaS</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* FOOTER MODAL */}
+                <div className="flex justify-end px-6 py-4 border-t border-gray-100">
+                  <button onClick={() => setSelectedUser(null)} className="px-5 py-2 bg-[#004D40] text-white rounded-xl font-bold hover:bg-[#00332A] transition">
+                    Đóng
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
 
       {/* EMPTY STATE */}
-      {filtered.length === 0 && (
-        <EmptyState
-          title="Không tìm thấy đơn người dùng nào"
-          description="Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm"
-        />
+      {users.length === 0 && !loading && (
+        <EmptyState title="Không tìm thấy người dùng nào" description="Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm" />
       )}
 
       {/* PHÂN TRANG */}
-      {paginatedData.length > 0 && (
-        <Pagination
-          page={page}
-          totalPages={totalPages}
-          totalItems={filtered.length}
-          pageSize={pageSize}
-          onPageChange={setPage}
-        />
+      {users.length > 0 && totalPages > 1 && (
+        <Pagination page={page} totalPages={totalPages} totalItems={totalItems} pageSize={pageSize} onPageChange={setPage} />
       )}
     </div>
   );

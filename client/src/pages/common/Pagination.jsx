@@ -23,7 +23,7 @@ const Pagination = ({
       <p className="text-sm font-medium text-[#004D40]/70">
         Hiển thị <span className="font-bold text-[#004D40]">{start}</span> đến{" "}
         <span className="font-bold text-[#004D40]">{end}</span> của{" "}
-        <span className="font-bold text-[#004D40]">{totalItems}</span> đơn
+        <span className="font-bold text-[#004D40]">{totalItems}</span>
       </p>
 
       {/* BUTTONS */}
@@ -40,11 +40,10 @@ const Pagination = ({
           <button
             key={p}
             onClick={() => onPageChange(p)}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-bold ${
-              p === page
+            className={`w-8 h-8 flex items-center justify-center rounded-lg text-sm font-bold ${p === page
                 ? "bg-[#004D40] text-white"
                 : "border border-[#E0F2F1] text-[#004D40] hover:bg-[#E0F2F1]"
-            }`}
+              }`}
           >
             {p}
           </button>
