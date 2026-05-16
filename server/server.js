@@ -11,6 +11,8 @@ import serviceRoutes from './routes/serviceRoutes.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import tripRoutes from './routes/tripRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import bookingRoutes from './routes/bookingRoutes.js';
+import initCronJobs from './utils/cronJobs.js';
 import errorHandler from './middlewares/errorHandler.js';
 import ApiError from './utils/ApiError.js';
 
@@ -27,6 +29,8 @@ app.use(express.json());
 // Database Connection
 connectDB();
 
+initCronJobs();
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/owner-applications', ownerApplicationRoutes);
@@ -34,6 +38,7 @@ app.use('/api/services', serviceRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/trips', tripRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/bookings', bookingRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {

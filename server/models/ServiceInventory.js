@@ -57,7 +57,7 @@ serviceInventorySchema.pre('save', function (next) {
 
   // Tự động tính status dựa trên availableSlots
   const percentage = (this.availableSlots / this.totalSlots) * 100;
-  
+
   if (this.availableSlots === 0) {
     this.status = 'SOLD_OUT';
   } else if (percentage <= 30) {
@@ -72,7 +72,7 @@ serviceInventorySchema.pre('save', function (next) {
 // Middleware cho findOneAndUpdate để tự động tính lại availableSlots và status khi cập nhật
 serviceInventorySchema.pre('findOneAndUpdate', function (next) {
   const update = this.getUpdate();
-  
+
   if (update.$set) {
     const totalSlots = update.$set.totalSlots;
     const bookedSlots = update.$set.bookedSlots;
@@ -81,7 +81,7 @@ serviceInventorySchema.pre('findOneAndUpdate', function (next) {
       update.$set.availableSlots = totalSlots - bookedSlots;
 
       const percentage = (update.$set.availableSlots / totalSlots) * 100;
-      
+
       if (update.$set.availableSlots === 0) {
         update.$set.status = 'SOLD_OUT';
       } else if (percentage <= 30) {
@@ -122,7 +122,7 @@ serviceInventorySchema.statics.getMonthlyInventory = async function (serviceId, 
   }).sort({ date: 1 });
 };
 
-const ServiceInventory = mongoose.models.ServiceInventory || 
+const ServiceInventory = mongoose.models.ServiceInventory ||
   mongoose.model('ServiceInventory', serviceInventorySchema);
 
 export default ServiceInventory;
