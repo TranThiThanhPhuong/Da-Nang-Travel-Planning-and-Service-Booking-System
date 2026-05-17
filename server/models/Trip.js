@@ -1,11 +1,11 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
 const activitySchema = new mongoose.Schema({
   time: {
     type: String,
     required: true,
   },
-  activityName: {
+  name: {
     type: String,
     required: true,
   },
@@ -15,11 +15,8 @@ const activitySchema = new mongoose.Schema({
   },
   serviceId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Service',
+    ref: "Service",
     default: null,
-  },
-  description: {
-    type: String,
   },
 });
 
@@ -39,7 +36,7 @@ const tripSchema = new mongoose.Schema(
   {
     userId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
+      ref: "User",
       required: true,
       index: true,
     },
@@ -47,18 +44,7 @@ const tripSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
-    summary: {
-      type: String,
-    },
-    destination: {
-      type: String,
-      required: true,
-    },
     startDate: {
-      type: Date,
-      required: true,
-    },
-    endDate: {
       type: Date,
       required: true,
     },
@@ -72,10 +58,7 @@ const tripSchema = new mongoose.Schema(
     estimatedBudget: {
       type: Number,
     },
-    travelStyle: {
-      type: String,
-      enum: ['RELAXATION', 'EXPLORATION', 'FAMILY', 'COUPLE', 'ADVENTURE'],
-    },
+    travelStyle: [{ type: String }],
     peopleCount: {
       type: Number,
       default: 1,
@@ -83,18 +66,17 @@ const tripSchema = new mongoose.Schema(
     itinerary: [itineraryDaySchema],
     status: {
       type: String,
-      enum: ['DRAFT', 'CONFIRMED'],
-      default: 'DRAFT',
+      enum: ["DRAFT", "CONFIRMED", "ONGOING", "COMPLETED"],
+      default: "DRAFT",
     },
   },
   {
     timestamps: true,
-  }
+  },
 );
 
-// Index for user's trips
 tripSchema.index({ userId: 1, createdAt: -1 });
 
-const Trip = mongoose.models.Trip || mongoose.model('Trip', tripSchema);
+const Trip = mongoose.models.Trip || mongoose.model("Trip", tripSchema);
 
 export default Trip;

@@ -129,10 +129,12 @@ const MapPicker = ({
         `https://nominatim.openstreetmap.org/search`,
         {
           params: {
-            q: addressQuery,
+            q: addressQuery.toLowerCase().includes("đà nẵng") ? addressQuery : `${addressQuery}, Đà Nẵng`,
             format: "json",
             limit: 1,
             countrycodes: "vn", // Giới hạn trong VN
+            viewbox: "107.8180,16.2150,108.3500,15.9100", 
+            bounded: 1,
             "accept-language": "vi",
           },
           headers: {
@@ -151,7 +153,7 @@ const MapPicker = ({
         setSearchAddress(display_name);
         onAddressChange(display_name);
       } else {
-        alert("Không tìm thấy địa chỉ. Vui lòng thử lại.");
+        alert("Không tìm thấy địa chỉ này tại Đà Nẵng. Vui lòng thử lại.");
       }
     } catch (error) {
       console.error("Forward geocoding error:", error);
@@ -282,7 +284,7 @@ const MapPicker = ({
             type="text"
             value={position?.[1]?.toFixed(6) || ""}
             readOnly
-            className="w-full px-3 py-2 bg-black/5 border border-[#E0F2F1] rounded-md text-sm text-[#004D40] font-medium outline-none cursor-not-allowed"
+            className="w-full px-3 py-2 bg-black/5 border border-[#E0F2F1] rounded-tr-[20px] rounded-bl-[20px] rounded-tl-md rounded-br-md text-sm text-[#004D40] font-medium outline-none cursor-not-allowed"
           />
         </div>
         <div>
@@ -293,7 +295,7 @@ const MapPicker = ({
             type="text"
             value={position[0].toFixed(6)}
             readOnly
-            className="w-full px-3 py-2 bg-black/5 border border-[#E0F2F1] rounded-md text-sm text-[#004D40] font-medium outline-none cursor-not-allowed"
+            className="w-full px-3 py-2 bg-black/5 border border-[#E0F2F1] rounded-tr-[20px] rounded-bl-[20px] rounded-tl-md rounded-br-md text-sm text-[#004D40] font-medium outline-none cursor-not-allowed"
           />
         </div>
       </div>
