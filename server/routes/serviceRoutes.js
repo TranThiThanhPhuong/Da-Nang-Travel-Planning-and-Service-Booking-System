@@ -1,5 +1,5 @@
 import express from 'express';
-import { 
+import {
     getServices,
     createService,
     getMyServices,
@@ -14,11 +14,12 @@ const router = express.Router();
 
 router.get('/', getServices);
 
-router.use(verifyClerkToken, requireRole('OWNER'));
-router.post('/', createService);
-router.get('/my', getMyServices);
+router.get('/my', verifyClerkToken, requireRole('OWNER'), getMyServices);
+
+router.post('/', verifyClerkToken, requireRole('OWNER'), createService);
+router.put('/:id', verifyClerkToken, requireRole('OWNER'), updateService);
+router.delete('/:id', verifyClerkToken, requireRole('OWNER'), deleteService);
+
 router.get('/:id', getServiceById);
-router.put('/:id', updateService);
-router.delete('/:id', deleteService);
 
 export default router;
