@@ -30,30 +30,30 @@ export const createBooking = async (req, res, next) => {
     try {
         lock = await redlock.acquire([lockKey], 5000);
 
-        // 1. KIỂM TRA DỊCH VỤ & XÁC ĐỊNH LOẠI
-        const service = await Service.findById(serviceId).select('ownerId finalPrice type name');
+        // 1. Kiểm tra thông tin phân loại và biểu phí gốc của dịch vụ
+        const service = await Service.findById(serviceId).select('ownerId price discount finalPrice type name');
         if (!service) throw new ApiError(404, 'Không tìm thấy dịch vụ.');
 
+        // Tính toán các mốc giá dựa trên cấu hình lưu trữ
+        const originalPrice = service.price || service.finalPrice;
+        const discount = service.discount || 0;
         const unitPrice = service.finalPrice;
         let datesToBook = [];
         let totalPrice = 0;
 
-        // 2. PHÂN NHÁNH LOGIC DỰA TRÊN LOẠI DỊCH VỤ
+        // 2. Định biên khoảng ngày lưu trữ dựa theo loại hình dịch vụ
         if (service.type === 'HOTEL') {
-            // Luồng Khách sạn: Nhiều ngày
             if (!checkOutDate) throw new ApiError(400, 'Khách sạn yêu cầu ngày trả phòng.');
             datesToBook = getDatesInRange(checkInDate, checkOutDate);
             if (datesToBook.length === 0) throw new ApiError(400, 'Ngày trả phòng phải sau ngày nhận phòng.');
 
             totalPrice = unitPrice * quantity * datesToBook.length;
         } else {
-            // Luồng Nhà hàng / Hoạt động: 1 ngày duy nhất
-            // Đối với loại này, ta chỉ quan tâm đến checkInDate (chính là ngày diễn ra)
             datesToBook = [new Date(checkInDate)];
             totalPrice = unitPrice * quantity;
         }
 
-        // 3. KIỂM TRA KHO (INVENTORY) & OPTIMISTIC LOCKING
+        // 3. Thực thi nghiệp vụ kiểm tra trạng thái khả dụng kho
         const inventories = await ServiceInventory.find({
             serviceId,
             date: { $in: datesToBook }
@@ -65,7 +65,6 @@ export const createBooking = async (req, res, next) => {
 
         const updatedInventories = [];
 
-        // Lặp qua để trừ kho (Nếu là HOTEL thì lặp nhiều ngày, RESTAURANT/ACTIVITY thì lặp 1 lần)
         for (const inv of inventories) {
             if (inv.availableSlots < quantity) {
                 throw new ApiError(400, `Hết chỗ/phòng trong ngày ${inv.date.toLocaleDateString('vi-VN')}.`);
@@ -87,7 +86,6 @@ export const createBooking = async (req, res, next) => {
                 { new: true }
             );
 
-            // Rollback nếu có xung đột (Optimistic Locking)
             if (!updatedInv) {
                 for (const rollbackInv of updatedInventories) {
                     await ServiceInventory.findByIdAndUpdate(rollbackInv._id, {
@@ -99,10 +97,8 @@ export const createBooking = async (req, res, next) => {
             updatedInventories.push(updatedInv);
         }
 
-        // 4. LƯU BOOKING
+        // 4. Khởi tạo bản ghi đặt chỗ và đính kèm chi tiết biểu phí chiết khấu
         const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
-
-        // Đảm bảo checkOutDate có giá trị hợp lệ cho DB kể cả với RESTAURANT/ACTIVITY
         const finalCheckOutDate = service.type === 'HOTEL' ? checkOutDate : checkInDate;
 
         const newBooking = await Booking.create({
@@ -114,6 +110,8 @@ export const createBooking = async (req, res, next) => {
                 checkInDate,
                 checkOutDate: finalCheckOutDate,
                 quantity,
+                originalPrice,
+                discount,
                 unitPrice,
                 totalPrice,
                 customerInfo: {

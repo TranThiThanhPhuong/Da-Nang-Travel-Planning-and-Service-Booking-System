@@ -17,6 +17,7 @@ import AITripPlanner from "./pages/AITripPlanner";
 import MyItineraries from "./pages/MyItineraries";
 import MyBookings from "./pages/MyBookings";
 import BecomePartner from "./pages/BecomePartner";
+import PaymentResult from './pages/PaymentResult';
 
 // OWNER PAGES
 import Layout from "./pages/owner/Layout";
@@ -67,6 +68,14 @@ const App = () => {
           <Route path="/services/:id" element={<ServiceDetails />} />
 
           {/* PROTECTED USER ROUTES */}
+          <Route
+            path="/payment/:status/:bookingId"
+            element={
+              <ProtectedRoute allowedRoles={["USER", "OWNER", "ADMIN"]}>
+                <PaymentResult />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/ai-planner"
             element={
