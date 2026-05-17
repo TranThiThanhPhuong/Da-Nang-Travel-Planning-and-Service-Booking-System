@@ -41,10 +41,20 @@ const bookingSchema = new mongoose.Schema(
         required: true,
         min: 1,
       },
+      originalPrice: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+      discount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
       unitPrice: {
         type: Number,
         required: true,
-        min: 0, // Giá của 1 đơn vị/đêm tại thời điểm đặt (chống việc chủ đổi giá sau này)
+        min: 0,
       },
       totalPrice: {
         type: Number,
@@ -67,7 +77,6 @@ const bookingSchema = new mongoose.Schema(
     expiresAt: {
       type: Date,
       required: true,
-      index: { expireAfterSeconds: 0 } // TTL Index: Tự động xóa/quét khi hết hạn giữ chỗ (VD: 15 phút)
     },
     paymentDetails: {
       transactionId: { type: String }, // Mã giao dịch trả về từ PayOS
