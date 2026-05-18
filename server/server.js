@@ -13,6 +13,7 @@ import tripRoutes from './routes/tripRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
 import bookingRoutes from './routes/bookingRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
+import wishlistRoutes from './routes/wishlistRoutes.js';
 import initCronJobs from './utils/cronJobs.js';
 import errorHandler from './middlewares/errorHandler.js';
 import ApiError from './utils/ApiError.js';
@@ -41,6 +42,7 @@ app.use('/api/trips', tripRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/wishlists', wishlistRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {

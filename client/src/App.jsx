@@ -16,7 +16,6 @@ import ServiceDetails from "./pages/ServiceDetails";
 import AITripPlanner from "./pages/AITripPlanner";
 import MyItineraries from "./pages/MyItineraries";
 import ItineraryDetail from "./pages/ItineraryDetail";
-import MyBookings from "./pages/MyBookings";
 import BecomePartner from "./pages/BecomePartner";
 import PaymentResult from './pages/PaymentResult';
 
@@ -39,6 +38,7 @@ import Owners from "./pages/admin/Owners";
 import ServiceApprovals from "./pages/admin/Services";
 import Packages from "./pages/admin/Packages";
 import Finance from "./pages/admin/Finance";
+import AccountDashboard from "./pages/AccountDashboard";
 
 const App = () => {
   const location = useLocation();
@@ -102,18 +102,18 @@ const App = () => {
             }
           />
           <Route
-            path="/my-bookings"
-            element={
-              <ProtectedRoute allowedRoles={["USER", "OWNER", "ADMIN"]}>
-                <MyBookings />
-              </ProtectedRoute>
-            }
-          />
-          <Route
             path="/become-partner"
             element={
               <ProtectedRoute allowedRoles={["USER", "OWNER", "ADMIN"]}>
                 <BecomePartner dbUser={dbUser} />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/account"
+            element={
+              <ProtectedRoute allowedRoles={["USER", "OWNER", "ADMIN"]}>
+                <AccountDashboard dbUser={dbUser} />
               </ProtectedRoute>
             }
           />

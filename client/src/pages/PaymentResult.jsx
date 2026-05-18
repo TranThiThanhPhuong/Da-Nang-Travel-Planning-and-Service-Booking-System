@@ -78,7 +78,7 @@ const PaymentResult = () => {
 
                         <div className="flex flex-col w-full gap-3">
                             <button
-                                onClick={() => navigate('/booking-history')} // Tương lai sẽ trỏ về trang Quản lý đơn
+                                onClick={() => navigate('/account?tab=bookings')}
                                 className="w-full bg-[#004D40] text-white py-4 rounded-xl font-bold hover:bg-[#00332a] transition-colors flex items-center justify-center gap-2"
                             >
                                 <ReceiptText size={20} /> Xem lịch sử đặt chỗ
