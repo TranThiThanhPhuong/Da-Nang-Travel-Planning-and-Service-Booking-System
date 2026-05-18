@@ -2,6 +2,12 @@ import mongoose from 'mongoose';
 
 const bookingSchema = new mongoose.Schema(
   {
+    bookingCode: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true,
+    },
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -35,38 +41,50 @@ const bookingSchema = new mongoose.Schema(
         required: true,
         min: 1,
       },
+      originalPrice: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
+      discount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+      unitPrice: {
+        type: Number,
+        required: true,
+        min: 0,
+      },
       totalPrice: {
         type: Number,
         required: true,
         min: 0,
       },
-      phoneNumber: {
-        type: String,
-        required: true,
-      },
-      note: {
-        type: String,
-        maxlength: 1000,
+      customerInfo: {
+        fullName: { type: String, required: true },
+        phoneNumber: { type: String, required: true },
+        email: { type: String, required: true },
+        note: { type: String, maxlength: 1000 },
       },
     },
     status: {
-      bookingStatus: {
-        type: String,
-        enum: ['PENDING', 'CONFIRMED', 'CHECKED_IN', 'CANCELLED'],
-        default: 'PENDING',
-      },
-      paymentStatus: {
-        type: String,
-        enum: ['UNPAID', 'PAID', 'REFUNDED'],
-        default: 'UNPAID',
-      },
-    },
-    ownerVnpayTxnRef: {
       type: String,
+      enum: ['PENDING', 'PAID', 'CANCELLED', 'EXPIRED', 'COMPLETED'],
+      default: 'PENDING',
+      index: true,
+    },
+    expiresAt: {
+      type: Date,
+      required: true,
+    },
+    paymentDetails: {
+      transactionId: { type: String }, // Mã giao dịch trả về từ PayOS
+      paidAt: { type: Date },
     },
     version: {
       type: Number,
-      default: 1,
+      default: 1, // Dùng để xử lý Optimistic Locking
     },
   },
   {
@@ -74,9 +92,10 @@ const bookingSchema = new mongoose.Schema(
   }
 );
 
-// Index để tối ưu truy vấn theo serviceId và ngày check-in, cũng như theo trạng thái booking
+// Index để tối ưu truy vấn
 bookingSchema.index({ serviceId: 1, 'bookingDetails.checkInDate': 1 });
-bookingSchema.index({ serviceId: 1, 'status.bookingStatus': 1 });
+bookingSchema.index({ ownerId: 1, status: 1 });
+bookingSchema.index({ userId: 1, createdAt: -1 });
 
 const Booking = mongoose.models.Booking || mongoose.model('Booking', bookingSchema);
 

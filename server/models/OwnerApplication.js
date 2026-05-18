@@ -23,17 +23,22 @@ const ownerApplicationSchema = new mongoose.Schema(
     },
     bankAccount: {
       bankName: { type: String, required: [true, 'Tên ngân hàng là bắt buộc'] },
-      accountNumber: { 
-        type: String, 
+      accountNumber: {
+        type: String,
         required: [true, 'Số tài khoản là bắt buộc'],
         match: [/^[0-9]{6,15}$/, 'Số tài khoản không hợp lệ']
       },
-      accountHolderName: { 
-        type: String, 
+      accountHolderName: {
+        type: String,
         required: [true, 'Tên chủ tài khoản là bắt buộc'],
         uppercase: true,
         trim: true
       },
+    },
+    payos: {
+      clientId: { type: String, trim: true, select: false },
+      apiKey: { type: String, trim: true, select: false },
+      checksumKey: { type: String, trim: true, select: false },
     },
     documents: [
       {
