@@ -8,12 +8,14 @@ import {
   Map as MapIcon,
   Navigation,
   Loader2,
+  Tag,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
 import axios from "axios";
 import MapPicker from "../../components/MapPicker";
+import { FEATURES_CONFIG } from "../../assets/features";
 
 const AddService = () => {
   const { id } = useParams(); // Lấy ID từ URL (nếu có)
@@ -41,17 +43,11 @@ const AddService = () => {
   const fileInputRef = useRef(null);
   const [activeSlot, setActiveSlot] = useState(null);
   const [customFeature, setCustomFeature] = useState("");
-  const DEFAULT_FEATURES = [
-    "Wifi miễn phí",
-    "Hồ bơi ngoài trời",
-    "Bãi đậu xe",
-    "Bữa sáng Buffet",
-    "View biển",
-    "Spa & Massage",
-    "Đưa đón sân bay",
-    "Lễ tân 24/7",
-  ];
+
   const serviceType = watch("type");
+  const getFeatureGroups = () => {
+    return FEATURES_CONFIG[serviceType] || [];
+  };
 
   useEffect(() => {
     if (isEditMode) {
@@ -82,8 +78,11 @@ const AddService = () => {
           lng: service.location.coordinates[0],
           features: service.features || [],
         });
+        const allFeatures = Object.values(
+          FEATURES_CONFIG[serviceType] || [],
+        ).flatMap((group) => group.items.map((item) => item.value));
         const customFeatures = (service.features || []).filter(
-          (f) => !DEFAULT_FEATURES.includes(f),
+          (f) => !allFeatures.includes(f),
         );
 
         setCustomFeature(customFeatures.join(", "));
@@ -153,6 +152,18 @@ const AddService = () => {
     setValue("address", newAddress);
   };
 
+  const handleArrayToggle = (fieldName, value) => {
+    const current = watch(fieldName) || [];
+    if (current.includes(value)) {
+      setValue(
+        fieldName,
+        current.filter((v) => v !== value),
+      );
+    } else {
+      setValue(fieldName, [...current, value]);
+    }
+  };
+
   // ========== FORM SUBMIT ==========
   const onSubmit = async (data) => {
     setLoading(true);
@@ -210,9 +221,7 @@ const AddService = () => {
         setLoading(false);
         return;
       }
-      const selectedDefaultFeatures = (data.features || []).filter((f) =>
-        DEFAULT_FEATURES.includes(f),
-      );
+      const selectedFeatures = data.features || [];
 
       const customFeatures = customFeature
         ? customFeature
@@ -222,7 +231,7 @@ const AddService = () => {
         : [];
 
       const uniqueFeatures = [
-        ...new Set([...selectedDefaultFeatures, ...customFeatures]),
+        ...new Set([...selectedFeatures, ...customFeatures]),
       ];
       const serviceData = {
         name: data.name,
@@ -370,10 +379,10 @@ const AddService = () => {
                 </label>
                 <textarea
                   {...register("description")}
-                  rows="4"
+                  rows="10"
                   placeholder="Mô tả điểm nổi bật, dịch vụ cung cấp..."
-                  className={`${inputStyle} resize-none`}
-                ></textarea>
+                  className={`${inputStyle} min-h-[260px] leading-7 font-medium resize-y`}
+                />
               </div>
             </div>
           </motion.div>
@@ -479,46 +488,74 @@ const AddService = () => {
             </div>
           </motion.div>
 
-          {/* Box Tiện ích */}
+          {/* Tiện ích & Đặc điểm */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
             className="bg-white/80 backdrop-blur-[10px] p-6 rounded-tr-[40px] rounded-bl-[40px] rounded-tl-2xl rounded-br-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60"
           >
-            <h2 className="text-xl font-cormorant font-bold text-[#004D40] border-b border-[#004D40]/10 pb-3 mb-5">
-              Tiện ích cung cấp
-            </h2>
-            <div className="grid grid-cols-2 gap-y-4 gap-x-2">
-              {DEFAULT_FEATURES.map((feature, i) => (
-                <label
-                  key={i}
-                  className="flex items-start gap-2.5 cursor-pointer group"
-                >
-                  <input
-                    type="checkbox"
-                    value={feature}
-                    {...register("features")}
-                    className="w-4 h-4 mt-0.5 text-[#004D40] border-[#E0F2F1] rounded focus:ring-[#004D40] cursor-pointer"
-                  />
+            <div className="flex items-center gap-3 border-b border-[#004D40]/10 pb-3 mb-5">
+              <div className="w-10 h-10 rounded-2xl bg-[#004D40]/10 flex items-center justify-center">
+                <Tag className="text-[#004D40]" size={18} />
+              </div>
+              <div>
+                <h2 className="text-xl font-cormorant font-bold text-[#004D40]">
+                  Tiện ích & Đặc điểm
+                </h2>
+                <p className="text-xs text-[#004D40]/50 font-medium">
+                  Chọn các đặc điểm phù hợp với dịch vụ
+                </p>
+              </div>
+            </div>
+            <div className="space-y-5">
+              {getFeatureGroups().map((group) => (
+                <div key={group.title}>
+                  <h3 className="text-sm font-bold text-[#004D40] mb-3">
+                    {group.title}
+                  </h3>
 
-                  <span className="text-sm font-bold text-[#004D40]/80 group-hover:text-[#004D40] transition-colors">
-                    {feature}
-                  </span>
-                </label>
+                  <div className="flex flex-wrap gap-2">
+                    {group.items.map((feature) => {
+                      const selected = (watch("features") || []).includes(
+                        feature.value,
+                      );
+                      return (
+                        <button
+                          key={feature.value}
+                          type="button"
+                          onClick={() =>
+                            handleArrayToggle("features", feature.value)
+                          }
+                          className={`px-4 py-2 rounded-tr-[20px] rounded-bl-[20px] rounded-tl-md rounded-br-md text-xs font-bold transition-all border ${
+                            selected
+                              ? "bg-[#004D40] text-white border-[#004D40]"
+                              : "bg-white text-[#004D40]/70 border-[#004D40]/10"
+                          }`}
+                        >
+                          {feature.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               ))}
             </div>
-            <div className="mt-5">
+            <div className="mt-6">
               <label className="block text-sm font-bold text-[#004D40] mb-2">
                 Tiện ích khác
               </label>
 
-              <input
-                type="text"
+              <textarea
+                rows="4"
                 value={customFeature}
                 onChange={(e) => setCustomFeature(e.target.value)}
-                placeholder="VD: Cho thuê xe máy, Có phòng hút thuốc..."
-                className={inputStyle}
+                placeholder="VD:
+                  - Cho thuê xe máy
+                  - Hồ bơi nước nóng
+                  - Xe đưa đón sân bay
+                  - Phòng hút thuốc..."
+                className={`${inputStyle} min-h-[120px] leading-6 resize-y`}
               />
             </div>
           </motion.div>
