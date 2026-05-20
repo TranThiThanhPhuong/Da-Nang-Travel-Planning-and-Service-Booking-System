@@ -133,3 +133,20 @@ export const createBooking = async (req, res, next) => {
         }
     }
 };
+
+// GET /api/bookings/my-bookings
+export const getMyBookings = async (req, res, next) => {
+    try {
+        const userId = req.user._id;
+
+        // Truy vấn tất cả Booking của user này, xếp đơn mới nhất lên đầu
+        const bookings = await Booking.find({ userId })
+            .populate('serviceId', 'name thumbnail address type ratingStats')
+            .sort({ createdAt: -1 })
+            .lean(); // Dùng lean() để tối ưu tốc độ đọc
+
+        return ApiResponse.send(res, 200, 'Lấy lịch sử đặt chỗ thành công.', bookings);
+    } catch (error) {
+        next(error);
+    }
+};
