@@ -1,10 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, MapPin, Star, Filter, Utensils, Bed, Ticket, ChevronRight, SlidersHorizontal, Tag, ChevronDown, Sparkles, TrendingUp, TrendingDown } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const AllServices = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Hàm bổ trợ đọc các URL Query Parameters ban đầu (ví dụ: ?type=HOTEL&keyword=abc)
+    const getQueryParam = (param) => {
+        return new URLSearchParams(location.search).get(param);
+    };
 
     // --- 1. STATE QUẢN LÝ DỮ LIỆU & PHÂN TRANG ---
     const [services, setServices] = useState([]);
@@ -13,9 +19,9 @@ const AllServices = () => {
     const [hasMore, setHasMore] = useState(false);
 
     // --- 2. STATE QUẢN LÝ BỘ LỌC & SẮP XẾP ---
-    const [category, setCategory] = useState('ALL');
-    const [keyword, setKeyword] = useState('');
-    const [debouncedKeyword, setDebouncedKeyword] = useState('');
+    const [category, setCategory] = useState(getQueryParam('type') || 'ALL');
+    const [keyword, setKeyword] = useState(getQueryParam('keyword') || '');
+    const [debouncedKeyword, setDebouncedKeyword] = useState(getQueryParam('keyword') || '');
     const [selectedAreas, setSelectedAreas] = useState([]);
     const [priceRange, setPriceRange] = useState('');
     const [minRating, setMinRating] = useState(0);
@@ -39,6 +45,14 @@ const AllServices = () => {
         { id: '3000000-', label: 'Trên 3.000.000đ' },
     ];
 
+    useEffect(() => {
+        const typeParam = getQueryParam('type') || 'ALL';
+        const keywordParam = getQueryParam('keyword') || '';
+        setCategory(typeParam);
+        setKeyword(keywordParam);
+        setDebouncedKeyword(keywordParam);
+    }, [location.search]);
+
     // --- 3. LOGIC DEBOUNCE TÌM KIẾM ---
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -59,7 +73,7 @@ const AllServices = () => {
                 type: category
             });
 
-            if (debouncedKeyword) params.append('keyword', debouncedKeyword);
+            if (debouncedKeyword.trim()) params.append('keyword', debouncedKeyword.trim());
             if (selectedAreas.length > 0) params.append('areas', selectedAreas.join(','));
             if (hasDiscount) params.append('hasDiscount', 'true');
             if (minRating > 0) params.append('minRating', minRating);

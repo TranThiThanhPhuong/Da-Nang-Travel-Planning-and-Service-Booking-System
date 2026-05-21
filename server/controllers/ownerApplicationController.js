@@ -55,13 +55,14 @@ export const submitApplication = async (req, res) => {
       businessAddress,
       phoneNumber,
       bankAccount,
+      payos,
       documents,
     } = req.body;
 
-    if (!businessName || !phoneNumber || !bankAccount?.accountNumber) {
+    if (!businessName || !phoneNumber || !bankAccount?.accountNumber || !payos?.clientId || !payos?.apiKey || !payos?.checksumKey) {
       return res.status(400).json({
         success: false,
-        message: "Thiếu thông tin bắt buộc",
+        message: "Thiếu thông tin bắt buộc hoặc chưa cấu hình PayOS đầy đủ",
       });
     }
 
@@ -82,6 +83,7 @@ export const submitApplication = async (req, res) => {
       businessAddress,
       phoneNumber,
       bankAccount,
+      payos,
       documents,
     });
 
@@ -110,10 +112,18 @@ export const getAllApplications = async (req, res) => {
       .populate("userId", "fullName email clerkId")
       .sort({ createdAt: -1 });
 
+    const sanitizedApplications = applications.map((app) => {
+      delete app.payos; // Xóa bỏ hoàn toàn object chứa key (nếu có rò rỉ)
+      return {
+        ...app,
+        payosStatus: "Đã cấu hình đầy đủ thông tin cổng PayOS ✓", // Gửi text này về cho Admin hiển thị trên giao diện bảng (Table)
+      };
+    });
+
     res.json({
       success: true,
-      count: applications.length,
-      data: applications,
+      count: sanitizedApplications.length,
+      data: sanitizedApplications,
     });
   } catch (error) {
     console.error("Get applications error:", error);
@@ -143,7 +153,7 @@ export const reviewApplication = async (req, res) => {
       id,
       { status, adminNotes, reviewedAt: Date.now() },
       { new: true },
-    ).populate("userId", "fullName email clerkId");
+    ).populate("userId", "fullName email clerkId").lean();
 
     if (!application) {
       return res.status(404).json({
@@ -170,6 +180,9 @@ export const reviewApplication = async (req, res) => {
       }
     }
 
+    delete application.payos;
+    application.payosStatus = "Đã cấu hình đầy đủ thông tin cổng PayOS ✓";
+
     res.json({
       success: true,
       message: `Đã ${status === "APPROVED" ? "duyệt" : "từ chối"} đơn đăng ký`,
@@ -187,7 +200,9 @@ export const getMyApplicationStatus = async (req, res) => {
   try {
     const application = await OwnerApplication.findOne({
       userId: req.user._id,
-    }).sort({ createdAt: -1 });
+    })
+    .select("+payos.clientId +payos.apiKey +payos.checksumKey")
+    .sort({ createdAt: -1 });
 
     res.json({
       success: true,
