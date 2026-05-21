@@ -112,6 +112,54 @@ const ServiceDetails = () => {
     const [currentImgIndex, setCurrentImgIndex] = useState(0);
     const [lightboxImages, setLightboxImages] = useState([]);
 
+    const [isSaved, setIsSaved] = useState(false);
+
+    // Kiểm tra xem người dùng hiện tại đã lưu dịch vụ này vào danh sách yêu thích chưa
+    useEffect(() => {
+        const checkWishlistStatus = async () => {
+            if (!userId) return;
+            try {
+                const token = await getToken();
+                const res = await axios.get('/api/wishlists/my-wishlists', {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                // Kiểm tra xem ID của dịch vụ hiện tại có nằm trong danh sách yêu thích không
+                const savedList = res.data.data;
+                const isFound = savedList.some(item => item._id === id);
+                setIsSaved(isFound);
+            } catch (error) {
+                console.error('Lỗi khi kiểm tra trạng thái yêu thích:', error);
+            }
+        };
+        checkWishlistStatus();
+    }, [id, userId]);
+
+    const handleWishlistToggle = async () => {
+        if (!userId) {
+            return setModalConfig({
+                isOpen: true,
+                type: 'warning',
+                title: 'Yêu cầu đăng nhập',
+                message: 'Bạn cần đăng nhập vào hệ thống để lưu dịch vụ này vào danh sách yêu thích.',
+            });
+        }
+
+        try {
+            const token = await getToken();
+            const res = await axios.post('/api/wishlists/toggle',
+                { serviceId: id },
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            // Cập nhật trạng thái hiển thị trái tim dựa trên kết quả trả về từ API
+            setIsSaved(res.data.data.isSaved);
+            toast.success(res.data.message);
+        } catch (error) {
+            console.error('Lỗi khi thao tác danh sách yêu thích:', error);
+            toast.error('Không thể cập nhật danh sách yêu thích. Vui lòng thử lại.');
+        }
+    };
+
     const closeModal = () => setModalConfig({ ...modalConfig, isOpen: false });
 
     useEffect(() => {
@@ -366,6 +414,19 @@ const ServiceDetails = () => {
                             <MapPin size={16} className="text-[#FFAB40]" /> {service.address}
                         </p>
                     </motion.div>
+
+                    <div className="flex items-center gap-3 self-end md:self-auto">
+                        <button className="p-3 bg-white hover:bg-gray-100 border border-gray-200 rounded-full shadow-md text-[#004D40] transition-colors" title="Chia sẻ dịch vụ">
+                            <Share2 size={20} />
+                        </button>
+                        <button
+                            onClick={handleWishlistToggle}
+                            className="p-3 bg-white hover:bg-gray-100 border border-gray-200 rounded-full shadow-md transition-colors"
+                            title={isSaved ? "Xóa khỏi danh sách yêu thích" : "Lưu vào danh sách yêu thích"}
+                        >
+                            <Heart size={20} className={isSaved ? "fill-red-500 text-red-500 animate-pulse" : "text-[#004D40]"} />
+                        </button>
+                    </div>
                 </div>
 
                 <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="grid grid-cols-1 lg:grid-cols-4 gap-4 auto-rows-[250px] lg:auto-rows-auto lg:h-[500px] mb-16">

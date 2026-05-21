@@ -10,6 +10,8 @@ import {
   LayoutDashboard,
   BellDot,
   CheckCircle,
+  Heart,
+  ReceiptText
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -103,11 +105,10 @@ const Navbar = ({ user: dbUser }) => {
                 whileHover={{ scale: 1.1 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => setShowNotifications(!showNotifications)}
-                className={`p-2 rounded-xl transition-all duration-200 relative ${
-                  showNotifications
-                    ? "bg-[#004D40] text-white shadow-lg shadow-[#004D40]/20"
-                    : "text-[#004D40] hover:bg-[#E0F2F1]"
-                }`}
+                className={`p-2 rounded-xl transition-all duration-200 relative ${showNotifications
+                  ? "bg-[#004D40] text-white shadow-lg shadow-[#004D40]/20"
+                  : "text-[#004D40] hover:bg-[#E0F2F1]"
+                  }`}
               >
                 <BellDot size={22} />
                 {notifications.length > 0 && (
@@ -177,9 +178,19 @@ const Navbar = ({ user: dbUser }) => {
                     href="/my-itineraries"
                   />
                   <UserButton.Link
-                    label="Đơn hàng của tôi"
-                    labelIcon={<ClipboardList size={16} />}
-                    href="/my-bookings"
+                    label="Đơn đặt của tôi"
+                    labelIcon={<ReceiptText size={16} />}
+                    href="/account?tab=bookings"
+                  />
+                  <UserButton.Link
+                    label="Danh sách đã lưu"
+                    labelIcon={<Heart size={16} />}
+                    href="/account?tab=wishlist"
+                  />
+                  <UserButton.Link
+                    label="Lịch trình cá nhân"
+                    labelIcon={<Map size={16} />}
+                    href="/account?tab=itineraries"
                   />
                 </UserButton.MenuItems>
               </UserButton>
