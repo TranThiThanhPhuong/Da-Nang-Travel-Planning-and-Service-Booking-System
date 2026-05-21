@@ -22,6 +22,7 @@ import {
   XCircle,
   FileCheck,
   RefreshCcw,
+  EyeOff,
 } from "lucide-react";
 import axios from "axios";
 import { useAuth } from "@clerk/clerk-react";
@@ -51,6 +52,9 @@ const BecomePartner = ({ dbUser }) => {
     bankName: "",
     accountNumber: "",
     accountHolderName: "",
+    clientId: "",
+    apiKey: "",
+    checksumKey: "",
   });
 
   const [files, setFiles] = useState({
@@ -79,6 +83,16 @@ const BecomePartner = ({ dbUser }) => {
 
   const [errors, setErrors] = useState({});
 
+  const [showKeys, setShowKeys] = useState({
+    clientId: false,
+    apiKey: false,
+    checksumKey: false,
+  });
+
+  const toggleKeyVisibility = (key) => {
+    setShowKeys((prev) => ({ ...prev, [key]: !prev[key] }));
+  };
+
   const handleCreateNew = () => {
     setStatus(null);
     setFormData({
@@ -88,6 +102,9 @@ const BecomePartner = ({ dbUser }) => {
       bankName: "",
       accountNumber: "",
       accountHolderName: "",
+      clientId: "",
+      apiKey: "",
+      checksumKey: "",
     });
     setFiles({
       CCCD: [],
@@ -166,21 +183,57 @@ const BecomePartner = ({ dbUser }) => {
     e.preventDefault();
     const isValid = validateAll();
     if (!isValid) {
-      alert("Vui lòng sửa lỗi trước khi gửi!");
+      setModalConfig({
+        isOpen: true,
+        type: "warning",
+        title: "Thông báo",
+        message: "Vui lòng sửa lỗi trước khi gửi!",
+      });
       return;
     }
-    if (files.CCCD.length !== 2)
-      return alert("Vui lòng tải lên đúng 2 ảnh CCCD!");
-    if (files.BUSINESS_LICENSE.length === 0)
-      return alert("Vui lòng tải ít nhất 1 giấy phép kinh doanh!");
+    if (files.CCCD.length !== 2) {
+      setModalConfig({
+        isOpen: true,
+        type: "warning",
+        title: "Thiếu tài liệu",
+        message: "Vui lòng tải lên đúng 2 ảnh CCCD!",
+      });
+      return;
+    }
+    if (files.BUSINESS_LICENSE.length === 0) {
+      setModalConfig({
+        isOpen: true,
+        type: "warning",
+        title: "Thiếu tài liệu",
+        message: "Vui lòng tải ít nhất 1 giấy phép kinh doanh!",
+      });
+      return;
+    }
 
-    setLoading(true);
+    // Kiểm tra nhanh 3 key PayOS bắt buộc nhập ở FE
+    if (!formData.clientId || !formData.apiKey || !formData.checksumKey) {
+      setModalConfig({
+        isOpen: true,
+        type: "warning",
+        title: "Thiếu cấu hình",
+        message: "Vui lòng điền đầy đủ 3 Key kết nối từ PayOS!",
+      });
+      return;
+    }
+
+    // Bật modal loading
+    setModalConfig({
+      isOpen: true,
+      type: "loading",
+      title: "Đang xử lý",
+      message: "Vui lòng chờ trong giây lát...",
+    });
+
     try {
       const token = await getToken();
       const allFiles = [];
       const metadata = [];
 
-      // Gom tất cả file vào 1 mảng để upload 1 lần
       Object.keys(files).forEach((type) => {
         files[type].forEach((file, index) => {
           allFiles.push(file);
@@ -215,6 +268,12 @@ const BecomePartner = ({ dbUser }) => {
           accountNumber: formData.accountNumber,
           accountHolderName: formData.accountHolderName,
         },
+        // Đóng gói PayOS gửi đi
+        payos: {
+          clientId: formData.clientId.trim(),
+          apiKey: formData.apiKey.trim(),
+          checksumKey: formData.checksumKey.trim(),
+        },
         documents: uploadRes.data.data,
       };
 
@@ -223,11 +282,23 @@ const BecomePartner = ({ dbUser }) => {
       });
 
       setStatus(res.data.data);
-      alert("Gửi đơn thành công!");
+      setModalConfig({
+        isOpen: true,
+        type: "success",
+        title: "Thành công",
+        message: "Đơn đăng ký của bạn đã được gửi và đang chờ Admin phê duyệt!",
+      });
+      handleCreateNew(); // Xóa sạch form sau khi gửi thành công
     } catch (error) {
-      alert(error.response?.data?.message || "Có lỗi xảy ra");
-    } finally {
-      setLoading(false);
+      const errMsg =
+        error.response?.data?.message ||
+        "Có lỗi xảy ra trong quá trình gửi đơn.";
+      setModalConfig({
+        isOpen: true,
+        type: "error",
+        title: "Thất bại",
+        message: errMsg,
+      });
     }
   };
 
@@ -683,7 +754,7 @@ const BecomePartner = ({ dbUser }) => {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-16"
+          className="text-center mb-5"
         >
           <h1 className="text-5xl font-cormorant font-bold text-[#004D40]">
             Hợp tác cùng D-PULSE
@@ -769,10 +840,10 @@ const BecomePartner = ({ dbUser }) => {
                 </div>
                 <div>
                   <h2 className="text-2xl font-cormorant font-bold text-[#004D40]">
-                    Tài khoản thụ hưởng
+                    Tài khoản thụ hưởng & Cổng thanh toán
                   </h2>
                   <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
-                    Cấu hình thanh toán VietQR / VNPay
+                    Cấu hình ngân hàng đối soát và tích hợp cổng PayOS
                   </p>
                 </div>
               </div>
@@ -824,6 +895,112 @@ const BecomePartner = ({ dbUser }) => {
                       {errors.accountHolderName}
                     </p>
                   )}
+                </div>
+              </div>
+              
+              {/* Cấu hình cổng kết nối PayOS */}
+              <div className="mt-8">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6">
+                  <div>
+                    <h3 className="text-lg font-bold text-[#004D40]">
+                      Thông tin kết nối PayOS
+                    </h3>
+                    <p className="text-xs text-gray-400">
+                      Các khóa bảo mật để tích hợp tính năng tự động tạo mã
+                      VietQR
+                    </p>
+                  </div>
+                  <a
+                    href="https://payos.vn/docs/huong-dan-su-dung/tao-kenh-thanh-toan/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs font-bold text-[#FFAB40] hover:underline flex items-center gap-1 bg-[#004D40]/5 px-3 py-1.5 rounded-full w-fit"
+                  >
+                    <span>Chưa có key? Hướng dẫn lấy Key PayOS ↗</span>
+                  </a>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* CLIENT ID INPUT */}
+                  <div>
+                    <label className={inputLabel}>Client ID</label>
+                    <div className="relative">
+                      <input
+                        required
+                        name="clientId"
+                        value={formData.clientId}
+                        onChange={handleInputChange}
+                        type={showKeys.clientId ? "text" : "password"}
+                        placeholder="Nhập Client ID"
+                        className={`${inputStyle} pr-10`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => toggleKeyVisibility("clientId")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showKeys.clientId ? (
+                          <EyeOff size={18} />
+                        ) : (
+                          <Eye size={18} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* API KEY INPUT */}
+                  <div>
+                    <label className={inputLabel}>API Key</label>
+                    <div className="relative">
+                      <input
+                        required
+                        name="apiKey"
+                        value={formData.apiKey}
+                        onChange={handleInputChange}
+                        type={showKeys.apiKey ? "text" : "password"}
+                        placeholder="Nhập API Key"
+                        className={`${inputStyle} pr-10`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => toggleKeyVisibility("apiKey")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showKeys.apiKey ? (
+                          <EyeOff size={18} />
+                        ) : (
+                          <Eye size={18} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* CHECKSUM KEY INPUT */}
+                  <div>
+                    <label className={inputLabel}>Checksum Key</label>
+                    <div className="relative">
+                      <input
+                        required
+                        name="checksumKey"
+                        value={formData.checksumKey}
+                        onChange={handleInputChange}
+                        type={showKeys.checksumKey ? "text" : "password"}
+                        placeholder="Nhập Checksum Key"
+                        className={`${inputStyle} pr-10`}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => toggleKeyVisibility("checksumKey")}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      >
+                        {showKeys.checksumKey ? (
+                          <EyeOff size={18} />
+                        ) : (
+                          <Eye size={18} />
+                        )}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </section>
