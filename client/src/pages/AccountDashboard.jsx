@@ -1,5 +1,6 @@
 import BookingList from '../components/Account/BookingList';
 import WishlistGrid from '../components/Account/WishlistGrid';
+import MyItineraries from "../components/Account/MyItineraries";
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, ReceiptText, Map, Settings, User } from 'lucide-react';
@@ -98,7 +99,7 @@ const AccountDashboard = () => {
                             <motion.div key="itineraries" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
                                 <h2 className="text-2xl font-black text-[#004D40] mb-2">Lịch trình cá nhân</h2>
                                 <p className="text-sm font-medium text-gray-400 mb-8">Danh sách các kế hoạch, lộ trình tham quan do bạn xây dựng.</p>
-                                <div className="text-center py-20 text-gray-400 font-medium italic border-2 border-dashed border-gray-100 rounded-2xl">Tính năng đang đồng bộ từ module Lịch trình...</div>
+                                <MyItineraries embedded={true} />
                             </motion.div>
                         )}
 

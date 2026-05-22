@@ -14,7 +14,6 @@ import Home from "./pages/Home";
 import AllServices from "./pages/AllServices";
 import ServiceDetails from "./pages/ServiceDetails";
 import AITripPlanner from "./pages/AITripPlanner";
-import MyItineraries from "./pages/MyItineraries";
 import ItineraryDetail from "./pages/ItineraryDetail";
 import BecomePartner from "./pages/BecomePartner";
 import PaymentResult from './pages/PaymentResult';
@@ -82,14 +81,6 @@ const App = () => {
             element={
               <ProtectedRoute allowedRoles={["USER", "OWNER", "ADMIN"]}>
                 <AITripPlanner />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/my-itineraries"
-            element={
-              <ProtectedRoute allowedRoles={["USER", "OWNER", "ADMIN"]}>
-                <MyItineraries />
               </ProtectedRoute>
             }
           />

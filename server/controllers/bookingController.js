@@ -138,12 +138,23 @@ export const createBooking = async (req, res, next) => {
 export const getMyBookings = async (req, res, next) => {
     try {
         const userId = req.user._id;
+        
+        // 1. Khởi tạo filter mặc định với userId
+        const filter = { userId };
 
-        // Truy vấn tất cả Booking của user này, xếp đơn mới nhất lên đầu
-        const bookings = await Booking.find({ userId })
-            .populate('serviceId', 'name thumbnail address type ratingStats')
+        // 🌟 2. KIỂM TRA NẾU FE CÓ TRUYỀN THAM SỐ ?status=PAID,COMPLETED
+        if (req.query.status) {
+            // Chuyển chuỗi "PAID,COMPLETED" thành mảng ['PAID', 'COMPLETED']
+            const statusArray = req.query.status.split(',');
+            // Thêm điều kiện lọc dùng toán tử $in của MongoDB
+            filter.status = { $in: statusArray };
+        }
+
+        // 3. Thực hiện truy vấn với object filter động
+        const bookings = await Booking.find(filter)
+            .populate('serviceId', 'name type thumbnail address pricePerUnit finalPrice ratingStats description ')
             .sort({ createdAt: -1 })
-            .lean(); // Dùng lean() để tối ưu tốc độ đọc
+            .lean(); // Giữ nguyên lean() để tối ưu tốc độ đọc
 
         return ApiResponse.send(res, 200, 'Lấy lịch sử đặt chỗ thành công.', bookings);
     } catch (error) {
