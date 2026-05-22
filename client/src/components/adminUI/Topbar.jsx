@@ -46,7 +46,11 @@ const Topbar = () => {
 
       {/* Bên phải: Actions */}
       <div className="flex items-center gap-5">
-        <div className="w-px h-6 bg-gray-200"></div>
+        <Link
+          to="/"
+          className="text-sm font-bold text-gray-500 hover:text-[#FFAB40] transition-colors"
+        >Trang khách hàng
+        </Link>
 
         {/* Notifications Dropdown Container */}
         <div className="relative">

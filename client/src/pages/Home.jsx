@@ -1,6 +1,6 @@
-import React, { useState} from 'react'
-import { motion } from 'framer-motion'
-import { Search, MapPin, Calendar, Utensils, Bed, Ticket, ArrowRight, Star, Sparkles } from 'lucide-react'
+import React, { useState, useRef, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Search, MapPin, Calendar, Utensils, Bed, Ticket, ArrowRight, Star, Sparkles, ChevronDown, Filter, } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useUser } from "@clerk/clerk-react";
 import LoginPrompt from "../components/LoginPrompt";
@@ -10,6 +10,11 @@ const Home = ( { dbUser } ) => {
     const { isSignedIn } = useUser();
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
+    const [searchType, setSearchType] = useState('ALL')
+    const [searchKeyword, setSearchKeyword] = useState('')
+    const [isTypeOpen, setIsTypeOpen] = useState(false);
+    const typeRef = useRef(null);
+
     const handleAIPlannerClick = () => {
         if (!isSignedIn) {
             setShowLoginPrompt(true);
@@ -18,12 +23,13 @@ const Home = ( { dbUser } ) => {
         }
     };
 
-    // Mock dữ liệu đa dạng theo Database Schema
-    const trendingServices = [
-        { id: '1', name: "InterContinental Sun Peninsula", type: "HOTEL", rating: 4.9, price: "4.500.000", image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80" },
-        { id: '2', name: "Hải sản Năm Đảnh", type: "RESTAURANT", rating: 4.7, price: "300.000", image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80" },
-        { id: '3', name: "Ký ức Hội An Show", type: "ACTIVITY", rating: 4.8, price: "600.000", image: "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80" },
-    ]
+    const handleSearchNavigate = (type = searchType, keyword = searchKeyword) => {
+        const params = new URLSearchParams();
+        if (type && type !== 'ALL') params.append('type', type);
+        if (keyword.trim()) params.append('keyword', keyword.trim());
+        
+        navigate(`/services?${params.toString()}`);
+    }
 
     const serviceTypes = [
         { id: 'HOTEL', label: 'Lưu trú', icon: <Bed size={18} />, color: 'bg-blue-500' },
@@ -31,11 +37,30 @@ const Home = ( { dbUser } ) => {
         { id: 'ACTIVITY', label: 'Hoạt động', icon: <Ticket size={18} />, color: 'bg-teal-500' },
     ]
 
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (typeRef.current && !typeRef.current.contains(event.target)) {
+                setIsTypeOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const typeOptions = [
+        { id: 'ALL', label: 'Tất cả dịch vụ', icon: <Sparkles size={16} /> },
+        { id: 'HOTEL', label: 'Khách sạn & Homestay', icon: <Bed size={16} /> },
+        { id: 'RESTAURANT', label: 'Nhà hàng & Đặc sản', icon: <Utensils size={16} /> },
+        { id: 'ACTIVITY', label: 'Tour & Trải nghiệm', icon: <Ticket size={16} /> },
+    ]
+
+    const currentTypeOption = typeOptions.find(opt => opt.id === searchType) || typeOptions[0];
+
     return (
         <div className="bg-[#F5F5F5] min-h-screen font-jakarta">
 
             {isSignedIn && dbUser && (
-                <div className="absolute top-24 left-6 z-30 bg-white/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/30 text-white text-xs font-bold">
+                <div className="absolute rounded-tr-[32px] rounded-bl-[32px] top-24 left-6 z-30 bg-white/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/30 text-white text-xs font-bold">
                     Chào mừng trở lại, {dbUser.fullName || "bạn đồng hành"}! ✨
                 </div>
             )}
@@ -62,14 +87,57 @@ const Home = ( { dbUser } ) => {
                     >
                         <div className="bg-white rounded-tr-[32px] rounded-bl-[32px] rounded-tl-xl rounded-br-xl p-2 flex flex-col md:flex-row gap-2">
                             {/* Chọn loại dịch vụ */}
-                            <div className="flex-1 px-6 py-3 border-r border-gray-100 flex flex-col items-start justify-center">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Bạn tìm gì?</p>
-                                <select className="w-full bg-transparent font-bold text-[#004D40] outline-none appearance-none cursor-pointer">
-                                    <option value="ALL">Tất cả dịch vụ</option>
-                                    <option value="HOTEL">Khách sạn & Homestay</option>
-                                    <option value="RESTAURANT">Nhà hàng & Đặc sản</option>
-                                    <option value="ACTIVITY">Tour & Trải nghiệm</option>
-                                </select>
+                            <div className="flex-1 px-6 py-3 border-r border-gray-100 flex flex-col items-start justify-center relative" ref={typeRef}>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Bạn tìm gì?</p>
+                                
+                                {/* Nút kích hoạt Dropdown */}
+                                <button
+                                    onClick={() => setIsTypeOpen(!isTypeOpen)}
+                                    className="w-full flex items-center justify-between bg-[#004D40]/5 hover:bg-[#004D40]/10 text-[#004D40] font-bold text-sm px-4 py-2.5 rounded-tr-xl rounded-bl-xl transition-all outline-none"
+                                >
+                                    <div className="flex items-center gap-2 text-sm">
+                                        <span className="text-[#FFAB40]">{currentTypeOption.icon}</span>
+                                        <span className="tracking-wide text-gray-800">{currentTypeOption.label}</span>
+                                    </div>
+                                    <ChevronDown 
+                                        size={16} 
+                                        className={`text-[#004D40]/50 transition-transform duration-300 ${isTypeOpen ? 'rotate-180' : ''}`}
+                                    />
+                                </button>
+
+                                {/* List Menu Option nổi lên khi Open */}
+                                <AnimatePresence>
+                                    {isTypeOpen && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0, y: 10 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="absolute top-[105%] left-6 right-6 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden"
+                                        >
+                                            {typeOptions.map((option) => (
+                                                <div
+                                                    key={option.id}
+                                                    onClick={() => {
+                                                        setSearchType(option.id);
+                                                        setIsTypeOpen(false);
+                                                    }}
+                                                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer text-sm font-bold transition-all
+                                                        ${searchType === option.id 
+                                                            ? 'bg-[#004D40]/5 text-[#FFAB40]' 
+                                                            : 'text-gray-700 hover:bg-gray-50 hover:text-[#004D40]'
+                                                        }
+                                                    `}
+                                                >
+                                                    <span className={searchType === option.id ? 'text-[#FFAB40]' : 'text-[#004D40]/40'}>
+                                                        {option.icon}
+                                                    </span>
+                                                    <span>{option.label}</span>
+                                                </div>
+                                            ))}
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                             </div>
 
                             {/* Địa điểm */}
@@ -77,14 +145,21 @@ const Home = ( { dbUser } ) => {
                                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Ở đâu?</p>
                                 <div className="flex items-center gap-2 w-full">
                                     <MapPin size={14} className="text-[#FFAB40]" />
-                                    <input type="text" placeholder="Khu vực Đà Nẵng..." className="w-full bg-transparent font-bold text-[#004D40] outline-none placeholder-gray-300" />
+                                    <input 
+                                        type="text" 
+                                        value={searchKeyword}
+                                        onChange={(e) => setSearchKeyword(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleSearchNavigate()}
+                                        placeholder="Khu vực, tên dịch vụ..." 
+                                        className="w-full bg-transparent font-bold text-[#004D40] outline-none placeholder-gray-300" 
+                                    />
                                 </div>
                             </div>
 
                             {/* Nút Tìm kiếm */}
                             <motion.button
                                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                                onClick={() => navigate('/services')}
+                                onClick={() => handleSearchNavigate()}
                                 className="bg-[#004D40] text-white px-10 py-4 rounded-tr-[28px] rounded-bl-[28px] rounded-tl-lg rounded-br-lg font-bold flex items-center justify-center gap-2 hover:bg-[#00332A] transition-all shadow-lg"
                             >
                                 <Search size={20} /> KHÁM PHÁ
@@ -100,6 +175,7 @@ const Home = ( { dbUser } ) => {
                     {serviceTypes.map((type, idx) => (
                         <motion.div
                             key={type.id} whileHover={{ y: -5 }}
+                            onClick={() => handleSearchNavigate(type.id, '')}
                             className="bg-white p-6 rounded-tr-[30px] rounded-bl-[30px] rounded-tl-xl rounded-br-xl shadow-xl flex flex-col items-center justify-center gap-3 cursor-pointer group border border-white"
                         >
                             <div className={`${type.color} text-white p-4 rounded-tr-2xl rounded-bl-2xl shadow-lg group-hover:rotate-12 transition-transform`}>
@@ -132,16 +208,65 @@ const Home = ( { dbUser } ) => {
                             Bắt đầu ngay <ArrowRight size={18} />
                         </button>
                     </div>
-                    <div className="flex-1 w-full max-w-md bg-white/5 backdrop-blur-md rounded-tr-[40px] rounded-bl-[40px] p-8 border border-white/10">
-                        {/* Preview nhỏ của Timeline */}
-                        <div className="space-y-6">
-                            {[1, 2, 3].map(i => (
-                                <div key={i} className="flex gap-4 items-center opacity-60">
-                                    <div className="w-10 h-10 rounded-full bg-[#FFAB40]/20 border border-[#FFAB40]/30 flex items-center justify-center text-[#FFAB40] font-bold text-xs">{i}</div>
-                                    <div className="h-2 w-full bg-white/10 rounded-full"></div>
-                                </div>
-                            ))}
+                    <div className="flex-1 w-full max-w-md bg-white/10 backdrop-blur-xl rounded-tr-[40px] rounded-bl-[40px] p-6 border border-white/20 shadow-inner relative group">
+                        {/* Hiệu ứng đốm sáng trang trí nền */}
+                        <div className="absolute -top-10 -left-10 w-32 h-32 bg-[#FFAB40]/10 rounded-full blur-2xl group-hover:bg-[#FFAB40]/20 transition-all duration-700"></div>
+                        {/* Header nhỏ của bảng preview */}
+                        <div className="flex justify-between items-center mb-6 border-b border-white/10 pb-3">
+                            <span className="text-xs font-black text-white/90 uppercase tracking-widest flex items-center gap-2">
+                                <Sparkles size={12} className="text-[#FFAB40] animate-pulse" /> Gợi ý từ Gemini AI
+                            </span>
+                            <span className="text-[10px] font-bold text-[#FFAB40] bg-[#FFAB40]/10 px-2 py-0.5 rounded-md border border-[#FFAB40]/20">
+                                3 Ngày 2 Đêm
+                            </span>
                         </div>
+                        {/* Timeline Lịch Trình Sống Động */}
+                        <div className="space-y-6 relative before:absolute before:left-[18px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-[#FFAB40] before:via-[#FFAB40]/40 before:to-transparent"> 
+                            {/* Điểm số 1: Khách sạn (HOTEL) */}
+                            <motion.div 
+                                whileHover={{ x: 4 }}
+                                className="flex gap-4 items-start relative z-10"
+                            >
+                                <div className="w-9 h-9 rounded-xl bg-blue-500 border border-blue-400 flex items-center justify-center text-white shadow-lg shadow-blue-500/20 shrink-0">
+                                    <Bed size={16} />
+                                </div>
+                                <div className="flex-1 bg-white/5 border border-white/10 rounded-tr-xl rounded-bl-xl p-3 hover:bg-white/10 transition-colors">
+                                    <span className="text-[9px] font-black text-blue-400 uppercase tracking-wider">09:00 • Nhận phòng</span>
+                                    <h4 className="text-sm font-bold text-white mt-0.5">Balcona Hotel Da Nang</h4>
+                                    <p className="text-xs text-[#E0F2F1]/60 mt-1 line-clamp-1">Võ Nguyên Giáp, Ngũ Hành Sơn</p>
+                                </div>
+                            </motion.div>
+                            {/* Điểm số 2: Ăn uống (RESTAURANT) */}
+                            <motion.div 
+                                whileHover={{ x: 4 }}
+                                className="flex gap-4 items-start relative z-10"
+                            >
+                                <div className="w-9 h-9 rounded-xl bg-orange-500 border border-orange-400 flex items-center justify-center text-white shadow-lg shadow-orange-500/20 shrink-0">
+                                    <Utensils size={16} />
+                                </div>
+                                <div className="flex-1 bg-white/5 border border-white/10 rounded-tr-xl rounded-bl-xl p-3 hover:bg-white/10 transition-colors">
+                                    <span className="text-[9px] font-black text-orange-400 uppercase tracking-wider">12:30 • Ẩm thực</span>
+                                    <h4 className="text-sm font-bold text-white mt-0.5">Mỳ Quảng Ếch Bếp Trang</h4>
+                                    <p className="text-xs text-[#E0F2F1]/60 mt-1 line-clamp-1">Lê Hồng Phong, Hải Châu</p>
+                                </div>
+                            </motion.div>
+                            {/* Điểm số 3: Vui chơi (ACTIVITY) */}
+                            <motion.div 
+                                whileHover={{ x: 4 }}
+                                className="flex gap-4 items-start relative z-10"
+                            >
+                                <div className="w-9 h-9 rounded-xl bg-teal-500 border border-teal-400 flex items-center justify-center text-white shadow-lg shadow-teal-500/20 shrink-0">
+                                    <Ticket size={16} />
+                                </div>
+                                <div className="flex-1 bg-white/5 border border-white/10 rounded-tr-xl rounded-bl-xl p-3 hover:bg-white/10 transition-colors">
+                                    <span className="text-[9px] font-black text-teal-400 uppercase tracking-wider">15:30 • Trải nghiệm</span>
+                                    <h4 className="text-sm font-bold text-white mt-0.5">Khám phá Bán Đảo Sơn Trà</h4>
+                                    <p className="text-xs text-[#E0F2F1]/60 mt-1 line-clamp-1">Chùa Linh Ứng & Đỉnh Bàn Cờ</p>
+                                </div>
+                            </motion.div>
+                        </div>
+                        {/* Hiệu ứng mờ dần nhẹ ở dưới cùng để tạo cảm giác lịch trình còn tiếp tục */}
+                        <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#004D40] to-transparent rounded-bl-[40px] pointer-events-none"></div>
                     </div>
                 </div>
             </section>
