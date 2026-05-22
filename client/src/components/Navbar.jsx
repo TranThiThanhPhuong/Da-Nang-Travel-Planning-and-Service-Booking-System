@@ -4,7 +4,6 @@ import { UserButton, useUser, SignInButton } from "@clerk/clerk-react";
 import {
   Sparkles,
   Map,
-  CalendarDays,
   ClipboardList,
   Store,
   LayoutDashboard,
@@ -172,11 +171,6 @@ const Navbar = ({ user: dbUser }) => {
 
               <UserButton afterSignOutUrl="/">
                 <UserButton.MenuItems>
-                  <UserButton.Link
-                    label="Lịch trình của tôi"
-                    labelIcon={<CalendarDays size={16} />}
-                    href="/my-itineraries"
-                  />
                   <UserButton.Link
                     label="Đơn đặt của tôi"
                     labelIcon={<ReceiptText size={16} />}

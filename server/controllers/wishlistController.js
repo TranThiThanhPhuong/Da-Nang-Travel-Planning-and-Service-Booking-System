@@ -31,7 +31,7 @@ export const getMyWishlist = async (req, res, next) => {
         const userId = req.user._id;
 
         const wishlists = await Wishlist.find({ userId })
-            .populate('serviceId', 'name thumbnail address type finalPrice price discount ratingStats features')
+            .populate('serviceId', 'name thumbnail address type finalPrice price discount ratingStats features description')
             .sort({ createdAt: -1 });
 
         // Làm sạch dữ liệu: Bóc tách lớp vỏ Wishlist ra, chỉ trả về một mảng chứa toàn bộ object Service (Bỏ qua các service bị Admin xóa khỏi hệ thống)
