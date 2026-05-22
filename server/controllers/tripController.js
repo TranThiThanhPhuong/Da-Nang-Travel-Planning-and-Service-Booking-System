@@ -1,4 +1,5 @@
 import Trip from "../models/Trip.js";
+import Booking from "../models/Booking.js";
 import { callAItoSchedule } from "../services/apiTripService.js";
 import { filterServicesForTrip } from "../services/serviceFilterService.js";
 
@@ -179,10 +180,61 @@ export const getTripById = async (req, res) => {
         message: "Không tìm thấy lịch trình",
       });
     }
+    const tripObject = trip.toObject();
+    const userBookings = await Booking.find({
+      userId: trip.userId, // Khớp chủ chuyến đi
+      status: { $in: ['PAID'] } // Chỉ lấy đơn hợp lệ đã thanh toán/hoàn thành
+    });
+    // Duyệt qua từng ngày và từng hoạt động để kiểm tra trạng thái vé
+    if (tripObject.itinerary && Array.isArray(tripObject.itinerary)) {
+      tripObject.itinerary.forEach((day) => {
+        // Lấy ngày hiện tại của Day này (đã bóc mốc giờ để so sánh chính xác ngày)
+        const currentDayDate = new Date(day.date);
+        currentDayDate.setHours(0, 0, 0, 0);
+
+        if (day.activities && Array.isArray(day.activities)) {
+          // Sắp xếp thời gian như yêu cầu trước của bạn
+          day.activities.sort((a, b) => (a.time || "00:00").localeCompare(b.time || "00:00"));
+
+          // Tiến hành check xem hoạt động đã đặt chưa
+          day.activities.forEach((act) => {
+            const serviceIdStr = act.serviceId?._id?.toString() || act.serviceId?.toString();
+
+            // Tìm xem có đơn đặt chỗ nào khớp dịch vụ và thời gian hay không
+            const matchingBooking = userBookings.find((booking) => {
+              const bookingServiceIdStr = booking.serviceId.toString();
+              
+              // Chuẩn hóa ngày Check-in / Check-out về dạng 0h00 để so sánh khoảng ngày
+              const checkIn = new Date(booking.bookingDetails.checkInDate);
+              checkIn.setHours(0, 0, 0, 0);
+              const checkOut = new Date(booking.bookingDetails.checkOutDate);
+              checkOut.setHours(0, 0, 0, 0);
+
+              // Điều kiện: Trùng ID dịch vụ VÀ ngày lịch trình nằm trong khoảng [Check-in, Check-out]
+              return (
+                bookingServiceIdStr === serviceIdStr &&
+                currentDayDate >= checkIn &&
+                currentDayDate <= checkOut
+              );
+            });
+
+            // Gán thêm thông tin vào object hoạt động trả về cho FE
+            if (matchingBooking) {
+              act.isBooked = true;
+              act.bookingCode = matchingBooking.bookingCode;
+              act.bookingStatus = matchingBooking.status;
+            } else {
+              act.isBooked = false;
+              act.bookingCode = null;
+            }
+          });
+        }
+      });
+    }
 
     res.json({
       success: true,
-      data: trip,
+      data: tripObject,
     });
   } catch (error) {
     console.error("Get trip error:", error);
@@ -212,13 +264,12 @@ export const updateTrip = async (req, res) => {
     Object.keys(req.body).forEach((key) => {
       if (allowedFields.includes(key)) {
         if (key === "itinerary" && Array.isArray(req.body.itinerary)) {
-          // Chuẩn hóa mảng chỉnh sửa gửi từ FE lên trước khi lưu, ép trường đặt tên là name
-          trip.itinerary = req.body.itinerary.map((day) => ({
-            dayNumber: day.day || day.dayNumber,
-            date: day.date,
-            activities: day.activities.map((act) => ({
-              time: act.time,
-              name: act.name || act.activityName, // 🌟 Phòng hờ nếu FE gửi lên là name hoặc activityName thì đều nhận
+          
+          trip.itinerary = req.body.itinerary.map((day) => {
+            // 1. Chuẩn hóa danh sách hoạt động như cũ
+            const formattedActivities = day.activities.map((act) => ({
+              time: act.time || "00:00", // Phòng hờ nếu không có thời gian thì đẩy lên đầu ngày
+              name: act.name || act.activityName,
               type: act.type,
               serviceId: act.serviceId,
               address: act.address,
@@ -228,8 +279,18 @@ export const updateTrip = async (req, res) => {
               thumbnail: act.thumbnail,
               ratingStats: act.ratingStats,
               description: act.description
-            })),
-          }));
+            }));
+
+            // 🌟 2. SẮP XẾP THỜI GIAN THEO THỨ TỰ TĂNG DẦN (07:00 -> 18:00)
+            formattedActivities.sort((a, b) => a.time.localeCompare(b.time));
+
+            return {
+              dayNumber: day.day || day.dayNumber,
+              date: day.date,
+              activities: formattedActivities, // Trả về mảng đã được sắp xếp ngăn nắp
+            };
+          });
+
         } else {
           trip[key] = req.body[key];
         }
@@ -238,9 +299,15 @@ export const updateTrip = async (req, res) => {
     
     await trip.save();
 
+    // Để Frontend nhận lại được dữ liệu đã populate đầy đủ (giúp giao diện hiển thị mượt mà luôn)
+    const updatedTrip = await Trip.findById(trip._id).populate({
+      path: "itinerary.activities.serviceId",
+      select: "name type address thumbnail pricePerUnit finalPrice features ratingStats location description",
+    });
+
     res.json({
       success: true,
-      data: trip,
+      data: updatedTrip, // Trả về cục data đã được sort và populate lại đầy đủ
       message: "Cập nhật lịch trình thành công",
     });
   } catch (error) {

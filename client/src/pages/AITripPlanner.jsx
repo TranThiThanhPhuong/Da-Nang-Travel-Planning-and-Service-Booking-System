@@ -134,7 +134,7 @@ const AITripPlanner = () => {
       if (response.data.success) {
         setAiStatus("✅ Lịch trình đã được lưu thành công");
         localStorage.removeItem("lastFormData");
-        navigate("/my-itineraries");
+        navigate("/account?tab=itineraries");
       }
     } catch (error) {
       console.error("❌ Lỗi khi lưu lịch trình:", error);
