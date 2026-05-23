@@ -1,5 +1,6 @@
 import Booking from '../models/Booking.js';
 import Service from '../models/Service.js';
+import Review from '../models/Review.js';
 import ServiceInventory from '../models/ServiceInventory.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
@@ -144,9 +145,7 @@ export const getMyBookings = async (req, res, next) => {
 
         // 🌟 2. KIỂM TRA NẾU FE CÓ TRUYỀN THAM SỐ ?status=PAID,COMPLETED
         if (req.query.status) {
-            // Chuyển chuỗi "PAID,COMPLETED" thành mảng ['PAID', 'COMPLETED']
             const statusArray = req.query.status.split(',');
-            // Thêm điều kiện lọc dùng toán tử $in của MongoDB
             filter.status = { $in: statusArray };
         }
 
@@ -156,7 +155,23 @@ export const getMyBookings = async (req, res, next) => {
             .sort({ createdAt: -1 })
             .lean(); // Giữ nguyên lean() để tối ưu tốc độ đọc
 
-        return ApiResponse.send(res, 200, 'Lấy lịch sử đặt chỗ thành công.', bookings);
+        const reviewedBookingIds = await Review.find({ userId })
+            .distinct('bookingId') // Trả về mảng các String/ObjectId đơn thuần [ 'id1', 'id2',... ]
+            .lean();
+
+        // Chuyển mảng ID sang tập hợp chuỗi String để so sánh chính xác bằng hàm .has() tốc độ cao
+        const reviewedSet = new Set(reviewedBookingIds.map(id => id.toString()));
+
+        // Duyệt qua từng đơn hàng và gán cờ `isReviewed` cho Frontend dùng
+        const finalBookings = bookings.map(booking => {
+            return {
+                ...booking,
+                // Nếu id của booking nằm trong tập hợp đã review -> true, ngược lại -> false
+                isReviewed: reviewedSet.has(booking._id.toString()) 
+            };
+        })
+
+        return ApiResponse.send(res, 200, 'Lấy lịch sử đặt chỗ thành công.', finalBookings);
     } catch (error) {
         next(error);
     }

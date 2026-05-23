@@ -5,6 +5,7 @@ import { useAuth } from '@clerk/clerk-react';
 import toast from 'react-hot-toast';
 import { Clock, CheckCircle2, AlertCircle, RefreshCcw, XCircle, CreditCard, Ticket, MessageSquare, QrCode, X } from 'lucide-react';
 import FeedbackModal from '../FeedbackModal';
+import ReviewModal from './ReviewModal';
 
 // ==========================================
 // THẺ HIỂN THỊ CHI TIẾT TỪNG ĐƠN HÀNG
@@ -126,9 +127,15 @@ const BookingCard = ({ booking, onActionTriggered, getToken, onExpire, onShowTic
                     )}
 
                     {booking.status === 'COMPLETED' && (
-                        <button onClick={() => onReview(booking)} className="px-5 py-2 bg-[#004D40] text-[#FFAB40] shadow-md text-sm font-bold rounded-xl hover:bg-[#002B24] transition-all flex items-center gap-2">
-                            <MessageSquare size={16} /> Đánh giá dịch vụ
-                        </button>
+                        !booking.isReviewed ? (
+                            <button onClick={() => onReview(booking)} className="px-5 py-2 bg-[#004D40] text-[#FFAB40] shadow-md text-sm font-bold rounded-xl hover:bg-[#002B24] transition-all flex items-center gap-2">
+                                <MessageSquare size={16} /> Đánh giá dịch vụ
+                            </button>
+                        ) : (
+                            <span className="px-4 py-2 bg-gray-100 text-gray-400 text-xs font-bold rounded-xl border border-gray-200 flex items-center gap-1.5 cursor-not-allowed">
+                                ✓ Đã gửi đánh giá
+                            </span>
+                        )
                     )}
                 </div>
             </div>
@@ -147,6 +154,9 @@ const BookingList = () => {
 
     const [modalConfig, setModalConfig] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null });
     const [showTicketModal, setShowTicketModal] = useState(null); // Quản lý Pop-up hiển thị vé
+
+    const [selectedBooking, setSelectedBooking] = useState(null);
+    const [isReviewOpen, setIsReviewOpen] = useState(false);
 
     useEffect(() => {
         const fetchBookings = async () => {
@@ -175,8 +185,21 @@ const BookingList = () => {
 
     // Hàm gọi chức năng đánh giá
     const handleReviewClick = (booking) => {
-        toast('Tính năng đánh giá đang được phát triển!', { icon: '🚧' });
-        // Code logic ở đây
+        setSelectedBooking(booking);
+        setIsReviewOpen(true);
+    };
+
+    const handleReviewSuccess = (bookingId) => {
+        // 1. Cập nhật thuộc tính isReviewed của phần tử trong mảng để ẩn nút ngay lập tức
+        setBookings(prev => prev.map(b => b._id === bookingId ? { ...b, isReviewed: true } : b));
+        
+        // 2. Gọi FeedbackModal loại success lên màn hình thông báo cho khách hàng
+        setModalConfig({
+            isOpen: true,
+            type: 'success',
+            title: 'Đánh giá thành công!',
+            message: 'Cảm ơn bạn đã chia sẻ trải nghiệm thực tế. Đánh giá của bạn sẽ giúp cộng đồng có cái nhìn khách quan hơn!'
+        });
     };
 
     const filteredBookings = bookings.filter(b => {
@@ -286,6 +309,14 @@ const BookingList = () => {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            <ReviewModal
+                isOpen={isReviewOpen}
+                onClose={() => setIsReviewOpen(false)}
+                booking={selectedBooking}
+                onSuccess={handleReviewSuccess}
+                getToken={getToken}
+            />
 
             <FeedbackModal {...modalConfig} onClose={() => setModalConfig({ ...modalConfig, isOpen: false })} />
         </div>
