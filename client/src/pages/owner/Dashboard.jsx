@@ -3,7 +3,9 @@ import { motion } from 'framer-motion'
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts'
-import { DollarSign, Users, CalendarCheck, TrendingUp } from 'lucide-react'
+import { useUser } from '@clerk/clerk-react';
+import { useNavigate } from 'react-router-dom';
+import { DollarSign, Users, CalendarCheck, TrendingUp, Lock, Zap } from 'lucide-react'
 
 // Dữ liệu giả lập
 const revenueData = [
@@ -23,6 +25,11 @@ const recentBookings = [
 ]
 
 const Dashboard = () => {
+    const { user } = useUser();
+    const navigate = useNavigate();
+    const currentPackage = user?.publicMetadata?.currentPackage || 'STARTER';
+    const isStatsLocked = currentPackage === 'STARTER';
+
     return (
         <div className="space-y-8 font-jakarta">
 
@@ -53,7 +60,7 @@ const Dashboard = () => {
                     className="lg:col-span-2 bg-white/80 backdrop-blur-[10px] p-6 rounded-tr-[40px] rounded-bl-[40px] rounded-tl-2xl rounded-br-2xl shadow-sm border border-white/40"
                 >
                     <h3 className="text-lg font-cormorant font-bold text-[#004D40] mb-6 text-2xl">Doanh thu 6 tháng gần nhất</h3>
-                    <div className="h-80 w-full">
+                    <div className={`h-80 w-full transition-all duration-500 ${isStatsLocked ? 'filter blur-[8px] opacity-40 select-none pointer-events-none' : ''}`}>
                         <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={revenueData}>
                                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E0F2F1" />
@@ -68,6 +75,27 @@ const Dashboard = () => {
                             </BarChart>
                         </ResponsiveContainer>
                     </div>
+
+                    {isStatsLocked && (
+                        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-white/30 backdrop-blur-[2px]">
+                            <div className="bg-white/90 p-6 rounded-3xl shadow-2xl border border-[#E0F2F1] flex flex-col items-center text-center max-w-xs sm:max-w-sm">
+                                <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center mb-3 text-[#FFAB40]">
+                                    <Lock size={24} strokeWidth={1.5} />
+                                </div>
+                                <h3 className="text-lg font-black text-[#004D40] mb-1">Tính năng Cao cấp</h3>
+                                <p className="text-xs font-medium text-gray-500 mb-4 leading-relaxed">
+                                    Nâng cấp lên gói <strong>Chuyên nghiệp (PRO)</strong> để mở khóa báo cáo phân tích dòng tiền và xu hướng khách hàng chi tiết.
+                                </p>
+                                <button
+                                    onClick={() => navigate('/owner/subscription')}
+                                    className="w-full bg-[#FFAB40] text-white py-2.5 rounded-xl font-bold hover:bg-[#e59939] transition-all flex items-center justify-center gap-2 shadow-lg shadow-[#FFAB40]/20 text-sm"
+                                >
+                                    <Zap size={16} /> Khám phá các gói
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                 </motion.div>
 
                 {/* 3. Đơn hàng gần đây */}
@@ -94,8 +122,8 @@ const Dashboard = () => {
                                 <div className="text-right">
                                     <p className="text-sm font-bold text-[#004D40]">${booking.amount}</p>
                                     <p className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full inline-block ${booking.status === 'Đã thanh toán' ? 'bg-[#E0F2F1] text-[#004D40]' :
-                                            booking.status === 'Chờ xác nhận' ? 'bg-orange-100 text-[#FFAB40]' :
-                                                booking.status === 'Đã xác nhận' ? 'bg-[#004D40] text-white' : 'bg-red-100 text-red-700'
+                                        booking.status === 'Chờ xác nhận' ? 'bg-orange-100 text-[#FFAB40]' :
+                                            booking.status === 'Đã xác nhận' ? 'bg-[#004D40] text-white' : 'bg-red-100 text-red-700'
                                         }`}>
                                         {booking.status}
                                     </p>
@@ -117,8 +145,8 @@ const StatCard = ({ title, value, icon, trend, isSpecial, delay }) => (
         transition={{ type: 'spring', stiffness: 200, damping: 20, delay }}
         whileHover={{ y: -5 }}
         className={`p-6 shadow-sm border border-white/50 transition-all ${isSpecial
-                ? 'bg-gradient-to-br from-[#004D40] to-[#00332A] text-white rounded-tr-[40px] rounded-bl-[40px] rounded-tl-xl rounded-br-xl'
-                : 'bg-white/80 backdrop-blur-[10px] text-[#004D40] rounded-tr-[40px] rounded-bl-[40px] rounded-tl-xl rounded-br-xl'
+            ? 'bg-gradient-to-br from-[#004D40] to-[#00332A] text-white rounded-tr-[40px] rounded-bl-[40px] rounded-tl-xl rounded-br-xl'
+            : 'bg-white/80 backdrop-blur-[10px] text-[#004D40] rounded-tr-[40px] rounded-bl-[40px] rounded-tl-xl rounded-br-xl'
             }`}
     >
         <div className="flex justify-between items-start mb-4">

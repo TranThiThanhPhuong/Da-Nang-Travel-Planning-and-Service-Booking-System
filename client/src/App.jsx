@@ -4,6 +4,7 @@ import { useAuthSync } from "./hooks/useAuthSync";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
+import GlobalLoader from './components/GlobalLoader';
 
 // AUTH PAGES
 import Login from "./pages/Login";
@@ -25,9 +26,9 @@ import ListService from "./pages/owner/ListService";
 import AddService from "./pages/owner/AddService";
 import Inventory from "./pages/owner/Inventory";
 import Bookings from "./pages/owner/Bookings";
-import Subscription from "./pages/owner/Subscription";
+import SaaSManagement from './pages/owner/SaaSManagement';
 import Settings from "./pages/owner/Settings";
-import Invoices from "./pages/owner/Invoices";
+import SubscriptionResult from "./pages/owner/SubscriptionResult";
 
 // ADMIN PAGES
 import AdminLayout from "./pages/admin/AdminLayout";
@@ -47,7 +48,7 @@ const App = () => {
   const isOwnerPath = location.pathname.startsWith("/owner");
   const isAdminPath = location.pathname.startsWith("/admin");
 
-  if (isLoading) return <div className="h-screen flex items-center justify-center">Đang tải cấu hình...</div>;
+  if (isLoading) return <GlobalLoader />;
   return (
     <div className="flex flex-col min-h-screen">
       {!isOwnerPath && !isAdminPath && !isAuthPath && <Navbar user={dbUser} />}
@@ -124,9 +125,9 @@ const App = () => {
             <Route path="edit-service/:id" element={<AddService />} />
             <Route path="inventory" element={<Inventory />} />
             <Route path="bookings" element={<Bookings />} />
-            <Route path="subscription" element={<Subscription />} />
+            <Route path="subscription" element={<SaaSManagement />} />
+            <Route path="subscription/result" element={<SubscriptionResult />} />
             <Route path="settings" element={<Settings />} />
-            <Route path="invoices" element={<Invoices />} />
           </Route>
 
           {/* ADMIN ROUTES */}

@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, MapPin, Calendar, Utensils, Bed, Ticket, ArrowRight, Star, Sparkles, ChevronDown, Filter, } from 'lucide-react'
+import { Search, MapPin, Calendar, Utensils, Bed, Ticket, ArrowRight, Star, Sparkles, ChevronDown, Filter, Crown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useUser } from "@clerk/clerk-react";
+import axios from 'axios';
 import LoginPrompt from "../components/LoginPrompt";
 
-const Home = ( { dbUser } ) => {
+const Home = ({ dbUser }) => {
     const navigate = useNavigate()
     const { isSignedIn } = useUser();
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
@@ -14,11 +15,16 @@ const Home = ( { dbUser } ) => {
     const [searchKeyword, setSearchKeyword] = useState('')
     const [isTypeOpen, setIsTypeOpen] = useState(false);
     const typeRef = useRef(null);
+    const sliderRef = useRef(null);
+
+    // Bổ sung State để chứa dữ liệu Banner VIP
+    const [premiumServices, setPremiumServices] = useState([]);
+    const [isLoadingPremium, setIsLoadingPremium] = useState(true);
 
     const handleAIPlannerClick = () => {
         if (!isSignedIn) {
             setShowLoginPrompt(true);
-        }   else {
+        } else {
             navigate("/ai-planner");
         }
     };
@@ -27,15 +33,43 @@ const Home = ( { dbUser } ) => {
         const params = new URLSearchParams();
         if (type && type !== 'ALL') params.append('type', type);
         if (keyword.trim()) params.append('keyword', keyword.trim());
-        
+
         navigate(`/services?${params.toString()}`);
     }
+
+    const scrollSlider = (direction) => {
+        if (sliderRef.current) {
+            const scrollAmount = 350; // Độ rộng của mỗi card
+            sliderRef.current.scrollBy({
+                left: direction === 'left' ? -scrollAmount : scrollAmount,
+                behavior: 'smooth'
+            });
+        }
+    };
 
     const serviceTypes = [
         { id: 'HOTEL', label: 'Lưu trú', icon: <Bed size={18} />, color: 'bg-blue-500' },
         { id: 'RESTAURANT', label: 'Ẩm thực', icon: <Utensils size={18} />, color: 'bg-orange-500' },
         { id: 'ACTIVITY', label: 'Hoạt động', icon: <Ticket size={18} />, color: 'bg-teal-500' },
     ]
+
+    // Gọi API kéo dữ liệu Banner
+    useEffect(() => {
+        const fetchPremiumBanners = async () => {
+            try {
+                const res = await axios.get('/api/services/premium-banners');
+                console.log("Dữ liệu banner nhận được:", res.data);
+                if (res.data.success) {
+                    setPremiumServices(res.data.data);
+                }
+            } catch (error) {
+                console.error("Lỗi khi tải banner cao cấp:", error);
+            } finally {
+                setIsLoadingPremium(false);
+            }
+        };
+        fetchPremiumBanners();
+    }, []);
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -60,7 +94,7 @@ const Home = ( { dbUser } ) => {
         <div className="bg-[#F5F5F5] min-h-screen font-jakarta">
 
             {isSignedIn && dbUser && (
-                <div className="absolute rounded-tr-[32px] rounded-bl-[32px] top-24 left-6 z-30 bg-white/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/30 text-white text-xs font-bold">
+                <div className="absolute rounded-tr-[32px] rounded-bl-[32px] top-24 left-6 z-30 bg-white/20 backdrop-blur-md px-4 py-2 rounded-full border border-white/30 text-white text-xs font-bold shadow-lg">
                     Chào mừng trở lại, {dbUser.fullName || "bạn đồng hành"}! ✨
                 </div>
             )}
@@ -89,7 +123,7 @@ const Home = ( { dbUser } ) => {
                             {/* Chọn loại dịch vụ */}
                             <div className="flex-1 px-6 py-3 border-r border-gray-100 flex flex-col items-start justify-center relative" ref={typeRef}>
                                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Bạn tìm gì?</p>
-                                
+
                                 {/* Nút kích hoạt Dropdown */}
                                 <button
                                     onClick={() => setIsTypeOpen(!isTypeOpen)}
@@ -99,8 +133,8 @@ const Home = ( { dbUser } ) => {
                                         <span className="text-[#FFAB40]">{currentTypeOption.icon}</span>
                                         <span className="tracking-wide text-gray-800">{currentTypeOption.label}</span>
                                     </div>
-                                    <ChevronDown 
-                                        size={16} 
+                                    <ChevronDown
+                                        size={16}
                                         className={`text-[#004D40]/50 transition-transform duration-300 ${isTypeOpen ? 'rotate-180' : ''}`}
                                     />
                                 </button>
@@ -123,8 +157,8 @@ const Home = ( { dbUser } ) => {
                                                         setIsTypeOpen(false);
                                                     }}
                                                     className={`flex items-center gap-3 px-4 py-3 cursor-pointer text-sm font-bold transition-all
-                                                        ${searchType === option.id 
-                                                            ? 'bg-[#004D40]/5 text-[#FFAB40]' 
+                                                        ${searchType === option.id
+                                                            ? 'bg-[#004D40]/5 text-[#FFAB40]'
                                                             : 'text-gray-700 hover:bg-gray-50 hover:text-[#004D40]'
                                                         }
                                                     `}
@@ -145,13 +179,13 @@ const Home = ( { dbUser } ) => {
                                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Ở đâu?</p>
                                 <div className="flex items-center gap-2 w-full">
                                     <MapPin size={14} className="text-[#FFAB40]" />
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         value={searchKeyword}
                                         onChange={(e) => setSearchKeyword(e.target.value)}
                                         onKeyDown={(e) => e.key === 'Enter' && handleSearchNavigate()}
-                                        placeholder="Khu vực, tên dịch vụ..." 
-                                        className="w-full bg-transparent font-bold text-[#004D40] outline-none placeholder-gray-300" 
+                                        placeholder="Khu vực, tên dịch vụ..."
+                                        className="w-full bg-transparent font-bold text-[#004D40] outline-none placeholder-gray-300"
                                     />
                                 </div>
                             </div>
@@ -187,6 +221,83 @@ const Home = ( { dbUser } ) => {
                 </div>
             </section>
 
+            {/* PREMIUM BANNERS SLIDER SECTION */}
+            {!isLoadingPremium && premiumServices.length > 0 && (
+                <section className="py-12 px-6 max-w-7xl mx-auto">
+                    <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 gap-4">
+                        <div>
+                            <h2 className="text-3xl md:text-4xl font-cormorant font-bold text-[#004D40] flex items-center gap-3">
+                                Tuyệt tác Điểm đến <Sparkles className="text-[#FFAB40]" size={28} />
+                            </h2>
+                            <p className="text-gray-500 font-medium mt-2">Tuyển tập những dịch vụ đẳng cấp nhất được đề xuất riêng cho bạn.</p>
+                        </div>
+
+                        {/* CỤM NÚT ĐIỀU HƯỚNG */}
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={() => scrollSlider('left')}
+                                className="p-2 rounded-full bg-[#004D40] text-white hover:bg-[#FFAB40] transition-colors shadow-lg"
+                            >
+                                <ChevronLeft size={20} />
+                            </button>
+                            <button
+                                onClick={() => scrollSlider('right')}
+                                className="p-2 rounded-full bg-[#004D40] text-white hover:bg-[#FFAB40] transition-colors shadow-lg"
+                            >
+                                <ChevronRight size={20} />
+                            </button>
+                            <div className="h-6 w-[1px] bg-gray-300 mx-2"></div>
+                            <button
+                                onClick={() => handleSearchNavigate('ALL', '')}
+                                className="text-[#004D40] font-bold text-sm flex items-center gap-2 hover:text-[#FFAB40] transition-colors"
+                            >
+                                Xem tất cả <ArrowRight size={16} />
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Thêm ref={sliderRef} vào đây */}
+                    <div
+                        ref={sliderRef}
+                        className="flex overflow-x-auto gap-6 pb-8 snap-x snap-mandatory [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] scroll-smooth"
+                    >
+                        {premiumServices.map((service, index) => (
+                            <motion.div
+                                key={service._id}
+                                initial={{ opacity: 0, x: 50 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ delay: index * 0.05 }}
+                                onClick={() => navigate(`/services/${service._id}`)}
+                                className="min-w-[300px] md:min-w-[350px] bg-white rounded-tr-[30px] rounded-bl-[30px] rounded-tl-xl rounded-br-xl shadow-lg hover:shadow-2xl border border-gray-100 overflow-hidden cursor-pointer snap-start group transition-all duration-300 flex flex-col"
+                            >
+                                {/* (Phần nội dung card giữ nguyên như cũ) */}
+                                <div className="relative h-56 overflow-hidden">
+                                    <img src={service.thumbnail} alt={service.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                                    <div className="absolute top-4 right-4 bg-gradient-to-r from-yellow-500 to-amber-500 text-white px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest shadow-lg flex items-center gap-1.5">
+                                        <Crown size={14} /> Đề xuất VIP
+                                    </div>
+                                    <div className="absolute bottom-4 left-4">
+                                        <span className="bg-white/90 backdrop-blur-sm text-[#004D40] font-black px-3 py-1.5 rounded-lg text-sm shadow-md">
+                                            {service.finalPrice?.toLocaleString('vi-VN')} đ
+                                        </span>
+                                    </div>
+                                </div>
+                                <div className="p-5 flex-1 flex flex-col">
+                                    <h3 className="text-lg font-bold text-[#004D40] line-clamp-2 leading-snug group-hover:text-[#FFAB40] transition-colors">
+                                        {service.name}
+                                    </h3>
+                                    <p className="text-sm text-gray-500 mt-2 flex items-start gap-1.5 line-clamp-2 flex-1">
+                                        <MapPin size={14} className="text-[#FFAB40] mt-0.5 shrink-0" />
+                                        {service.address}
+                                    </p>
+                                </div>
+                            </motion.div>
+                        ))}
+                    </div>
+                </section>
+            )}
+
             {/* AI CALL TO ACTION */}
             <section className="py-20 px-6 max-w-7xl mx-auto">
                 <div className="bg-[#004D40] rounded-tr-[60px] rounded-bl-[60px] p-10 md:p-20 relative overflow-hidden flex flex-col md:flex-row items-center gap-12 shadow-2xl border border-white/10">
@@ -221,9 +332,9 @@ const Home = ( { dbUser } ) => {
                             </span>
                         </div>
                         {/* Timeline Lịch Trình Sống Động */}
-                        <div className="space-y-6 relative before:absolute before:left-[18px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-[#FFAB40] before:via-[#FFAB40]/40 before:to-transparent"> 
+                        <div className="space-y-6 relative before:absolute before:left-[18px] before:top-2 before:bottom-2 before:w-[2px] before:bg-gradient-to-b before:from-[#FFAB40] before:via-[#FFAB40]/40 before:to-transparent">
                             {/* Điểm số 1: Khách sạn (HOTEL) */}
-                            <motion.div 
+                            <motion.div
                                 whileHover={{ x: 4 }}
                                 className="flex gap-4 items-start relative z-10"
                             >
@@ -237,7 +348,7 @@ const Home = ( { dbUser } ) => {
                                 </div>
                             </motion.div>
                             {/* Điểm số 2: Ăn uống (RESTAURANT) */}
-                            <motion.div 
+                            <motion.div
                                 whileHover={{ x: 4 }}
                                 className="flex gap-4 items-start relative z-10"
                             >
@@ -251,7 +362,7 @@ const Home = ( { dbUser } ) => {
                                 </div>
                             </motion.div>
                             {/* Điểm số 3: Vui chơi (ACTIVITY) */}
-                            <motion.div 
+                            <motion.div
                                 whileHover={{ x: 4 }}
                                 className="flex gap-4 items-start relative z-10"
                             >
