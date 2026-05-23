@@ -9,6 +9,7 @@ import {
     Waves, Dumbbell, Leaf, Utensils, Music, Baby, Wine, Mountain, Sunrise, Moon, Ticket, Briefcase, ArrowLeft, CarFront, MonitorSmartphone, ShieldCheck, MapPin, Clock, Coffee, Calendar
 } from 'lucide-react';
 import FeedbackModal from '../components/FeedbackModal';
+import ServiceReviews from './ServiceReviews';
 
 // =========================================================================
 // 1. TỪ ĐIỂN MÃ HÓA ENUM SANG TIẾNG VIỆT & BIỂU TƯỢNG (AMENITIES_DICT)
@@ -95,6 +96,8 @@ const ServiceDetails = () => {
 
     const [service, setService] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [reviews, setReviews] = useState([]);
+    const [loadingReviews, setLoadingReviews] = useState(true);
 
     const [checkInDate, setCheckInDate] = useState('');
     const [checkOutDate, setCheckOutDate] = useState('');
@@ -107,6 +110,25 @@ const ServiceDetails = () => {
         message: '',
         onConfirm: null,
     });
+
+    useEffect(() => {
+        const fetchReviews = async () => {
+            try {
+                const res = await axios.get(`/api/reviews/service/${id}`);
+                if (res.data.success) {
+                    setReviews(res.data.data || []);
+                }
+            } catch (error) {
+                console.error("Lỗi khi tải đánh giá dịch vụ:", error);
+            } finally {
+                setLoadingReviews(false);
+            }
+        };
+
+        if (id) {
+            fetchReviews();
+        }
+    }, [id]);
 
     const [showLightbox, setShowLightbox] = useState(false);
     const [currentImgIndex, setCurrentImgIndex] = useState(0);
@@ -588,6 +610,14 @@ const ServiceDetails = () => {
                         </motion.div>
                     </aside>
                 </div>
+
+                {loadingReviews ? (
+                    <div className="text-center py-10 text-xs text-[#004D40] font-bold">
+                        Đang tải đánh giá từ D-Pulse...
+                    </div>
+                ) : (
+                    <ServiceReviews reviews={reviews} />
+                )}
             </div>
 
             <AnimatePresence>
