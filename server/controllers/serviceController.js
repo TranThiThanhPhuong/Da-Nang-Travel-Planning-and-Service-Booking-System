@@ -4,43 +4,26 @@ import ApiResponse from '../utils/ApiResponse.js';
 import ApiError from '../utils/ApiError.js';
 import { removeVietnameseTones } from '../utils/stringUtils.js';
 
-// @desc    Lấy danh sách dịch vụ (Có Lọc, Tìm kiếm, Phân trang, Sắp xếp)
+// @desc    Lấy danh sách dịch vụ (Có Lọc, Tìm kiếm, Phân trang, Sắp xếp, Ưu tiên gói VIP)
 // @route   GET /api/services
 // @access  Public
 export const getServices = async (req, res, next) => {
   try {
-    const {
-      keyword,
-      type,
-      areas,       // Khu vực: "Hải Châu,Sơn Trà"
-      minPrice,
-      maxPrice,
-      hasDiscount, // true/false
-      minRating,   // 3, 4, 5
-      sort,        // price_asc, price_desc, rating_desc
-      page = 1,
-      limit = 6    // Giới hạn 6 item/trang
-    } = req.query;
+    const { keyword, type, areas, minPrice, maxPrice, hasDiscount, minRating, sort, page = 1, limit = 6 } = req.query;
 
     // 1. XÂY DỰNG BỘ LỌC (QUERY)
     const query = { approvalStatus: 'APPROVED' };
-
     if (type && type !== 'ALL') query.type = type;
-
     if (keyword) {
       const normalizedKeyword = removeVietnameseTones(keyword);
-      // Tìm các dịch vụ có searchString chứa từ khóa, "i" là không phân biệt hoa thường
       query.searchString = { $regex: normalizedKeyword, $options: 'i' };
     }
-
     if (areas) {
       const areaArray = areas.split(',').map(area => new RegExp(area.trim(), 'i'));
       query.address = { $in: areaArray };
     }
-
     if (hasDiscount === 'true') query.discount = { $gt: 0 };
     if (minRating) query['ratingStats.averageRating'] = { $gte: Number(minRating) };
-
     if (minPrice || maxPrice) {
       query.finalPrice = {};
       if (minPrice) query.finalPrice.$gte = Number(minPrice);
@@ -53,30 +36,54 @@ export const getServices = async (req, res, next) => {
     if (sort === 'price_desc') sortObj = { finalPrice: -1 };
     if (sort === 'rating_desc') sortObj = { 'ratingStats.averageRating': -1 };
 
-    // 3. TÍNH TOÁN PHÂN TRANG (PAGINATION)
     const pageNum = Number(page);
     const limitNum = Number(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    // 4. THỰC THI TRUY VẤN (SONG SONG)
+    // 3. AGGREGATE VỚI LOOKUP ĐỂ LẤY GÓI DỊCH VỤ TỪ BẢNG USER
+    const pipeline = [
+      { $match: query },
+      // JOIN với bảng Users để lấy thông tin gói
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'ownerId',
+          foreignField: '_id',
+          as: 'ownerInfo'
+        }
+      },
+      { $unwind: '$ownerInfo' },
+      // Gán trọng số dựa trên gói của chủ
+      {
+        $addFields: {
+          packageWeight: {
+            $switch: {
+              branches: [
+                { case: { $eq: ["$ownerInfo.currentPackage", "ULTIMATE"] }, then: 3 },
+                { case: { $eq: ["$ownerInfo.currentPackage", "PRO"] }, then: 2 }
+              ],
+              default: 1
+            }
+          }
+        }
+      },
+      // Sắp xếp theo trọng số VIP trước, rồi tới sortObj người dùng chọn
+      { $sort: { packageWeight: -1, ...sortObj } },
+      { $skip: skip },
+      { $limit: limitNum },
+      { $project: { ownerInfo: 0, __v: 0 } } // Xóa thông tin ownerInfo không cần thiết trả về
+    ];
+
+    // 4. THỰC THI (SONG SONG)
     const [services, total] = await Promise.all([
-      Service.find(query)
-        .sort(sortObj)
-        .skip(skip)
-        .limit(limitNum)
-        .select('-__v'),
+      Service.aggregate(pipeline),
       Service.countDocuments(query)
     ]);
 
     const totalPages = Math.ceil(total / limitNum);
 
-    // 5. TRẢ VỀ RESPONSE CHUẨN
     return ApiResponse.send(res, 200, 'Lấy danh sách dịch vụ thành công', services, {
-      count: services.length,
-      total,
-      page: pageNum,
-      totalPages,
-      hasMore: pageNum < totalPages
+      count: services.length, total, page: pageNum, totalPages, hasMore: pageNum < totalPages
     });
 
   } catch (error) {
@@ -118,6 +125,7 @@ export const createService = async (req, res) => {
 
     const service = await Service.create({
       ownerId: req.user._id,
+      ownerPackage: req.ownerPackageCode,
       name,
       type,
       description,
@@ -315,5 +323,31 @@ export const deleteService = async (req, res) => {
       success: false,
       message: error.message,
     });
+  }
+};
+
+// @desc    Lấy danh sách các dịch vụ thuộc gói ULTIMATE để hiển thị lên Slider Trang chủ
+// @route   GET /api/services/premium-banners
+// @access  Public
+export const getPremiumBannerServices = async (req, res, next) => {
+  try {
+    // 1. Tìm tất cả các dịch vụ đã duyệt
+    // 2. Populate thông tin 'ownerId' để lấy trường 'currentPackage' của chủ
+    const services = await Service.find({ approvalStatus: 'APPROVED' })
+      .populate({
+        path: 'ownerId',
+        select: 'currentPackage',
+        match: { currentPackage: 'ULTIMATE' } // Chỉ lấy những chủ có gói ULTIMATE
+      })
+      .select('name thumbnail description address finalPrice ownerId')
+      .limit(20);
+
+    // 3. Sau khi populate, những service có owner không phải ULTIMATE sẽ có ownerId = null
+    // Ta dùng filter để lọc bỏ các kết quả null đó
+    const premiumBanners = services.filter(service => service.ownerId !== null);
+
+    return ApiResponse.send(res, 200, 'Lấy danh sách banner cao cấp thành công.', premiumBanners);
+  } catch (error) {
+    next(error);
   }
 };

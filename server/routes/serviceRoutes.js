@@ -6,17 +6,20 @@ import {
     getServiceById,
     updateService,
     deleteService,
+    getPremiumBannerServices
 } from '../controllers/serviceController.js';
 import { verifyClerkToken } from '../middlewares/auth.js';
 import { requireRole } from '../middlewares/roleCheck.js';
+import { checkServiceQuota } from '../middlewares/saasGuard.js';
 
 const router = express.Router();
 
 router.get('/', getServices);
 
 router.get('/my', verifyClerkToken, requireRole('OWNER'), getMyServices);
+router.get('/premium-banners', getPremiumBannerServices);
 
-router.post('/', verifyClerkToken, requireRole('OWNER'), createService);
+router.post('/', verifyClerkToken, requireRole('OWNER'), checkServiceQuota, createService);
 router.put('/:id', verifyClerkToken, requireRole('OWNER'), updateService);
 router.delete('/:id', verifyClerkToken, requireRole('OWNER'), deleteService);
 

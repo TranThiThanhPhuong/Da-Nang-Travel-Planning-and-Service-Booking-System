@@ -31,11 +31,6 @@ const subscriptionPackageSchema = new mongoose.Schema(
             default: 1,
             // Dùng -1 để biểu thị "Không giới hạn"
         },
-        maxImagesPerService: {
-            type: Number,
-            required: [true, 'Giới hạn số lượng ảnh là bắt buộc'],
-            default: 5,
-        },
         hasPremiumBadge: {
             type: Boolean,
             default: false,
