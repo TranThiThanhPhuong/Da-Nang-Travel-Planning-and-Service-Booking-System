@@ -70,9 +70,22 @@ const bookingSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['PENDING', 'PAID', 'CANCELLED', 'EXPIRED', 'COMPLETED'],
+      enum: ['PENDING', 'PAID', 'CANCELLATION_PENDING', 'CANCELLED', 'EXPIRED', 'COMPLETED'],
       default: 'PENDING',
       index: true,
+    },
+    cancellationDetails: {
+      reason: { type: String },
+      bankInfo: {
+        bankName: { type: String },
+        accountNumber: { type: String },
+        accountName: { type: String },
+      },
+      refundAmount: { type: Number, default: 0 },   // Số tiền hệ thống tính toán phải trả cho khách
+      penaltyAmount: { type: Number, default: 0 },  // Số tiền phạt giữ lại cho Owner
+      refundRate: { type: Number, default: 0 },     // Tỷ lệ hoàn tiền (1, 0.5, 0)
+      requestedAt: { type: Date },
+      refundedAt: { type: Date }
     },
     expiresAt: {
       type: Date,

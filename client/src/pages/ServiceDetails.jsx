@@ -5,7 +5,7 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 import { useAuth } from '@clerk/clerk-react';
 import {
-    Star, Share2, Heart, Users, Info, CheckCircle2, Camera, X, ChevronLeft, ChevronRight, Sparkles, Building, Umbrella,
+    Star, Share2, Heart, Users, User, Info, CheckCircle2, Camera, X, ChevronLeft, ChevronRight, Sparkles, Building, Umbrella,
     Waves, Dumbbell, Leaf, Utensils, Music, Baby, Wine, Mountain, Sunrise, Moon, Ticket, Briefcase, ArrowLeft, CarFront, MonitorSmartphone, ShieldCheck, MapPin, Clock, Coffee, Calendar
 } from 'lucide-react';
 import FeedbackModal from '../components/FeedbackModal';
@@ -102,6 +102,11 @@ const ServiceDetails = () => {
     const [checkInDate, setCheckInDate] = useState('');
     const [checkOutDate, setCheckOutDate] = useState('');
     const [quantity, setQuantity] = useState(1);
+
+    const [custName, setCustName] = useState('');
+    const [custPhone, setCustPhone] = useState('');
+    const [custEmail, setCustEmail] = useState('');
+    const [custNote, setCustNote] = useState('');
 
     const [modalConfig, setModalConfig] = useState({
         isOpen: false,
@@ -319,13 +324,37 @@ const ServiceDetails = () => {
             });
         }
 
+        if (!custName.trim()) {
+            return setModalConfig({
+                isOpen: true,
+                type: 'warning',
+                title: 'Thiếu thông tin khách hàng',
+                message: 'Vui lòng điền họ và tên người liên hệ nhận phòng/dịch vụ.',
+            });
+        }
+        if (!custPhone.trim() || !/^(0|84)(3|5|7|8|9)[0-9]{8}$/.test(custPhone.trim())) {
+            return setModalConfig({
+                isOpen: true,
+                type: 'warning',
+                title: 'Số điện thoại không hợp lệ',
+                message: 'Vui lòng nhập số điện thoại liên hệ chính xác (gồm 10 chữ số).',
+            });
+        }
+        if (!custEmail.trim() || !/^\S+@\S+\.\S+$/.test(custEmail.trim())) {
+            return setModalConfig({
+                isOpen: true,
+                type: 'warning',
+                title: 'Email không hợp lệ',
+                message: 'Vui lòng điền chính xác địa chỉ Email để hệ thống gửi hóa đơn điện tử.',
+            });
+        }
         const totalAmount = calculateTotal();
 
         setModalConfig({
             isOpen: true,
             type: 'confirm',
             title: 'Xác nhận đặt dịch vụ',
-            message: `Bạn đang chuẩn bị ${actionLabel.toLowerCase()} cho ${quantity} ${unitLabel.toLowerCase().replace('số ', '')} với tổng số tiền là ${totalAmount.toLocaleString('vi-VN')} đ. Bạn có chắc chắn muốn tiến hành thanh toán?`,
+            message: `Bạn chuẩn bị ${actionLabel.toLowerCase()} cho ${quantity} ${unitLabel.toLowerCase().replace('số ', '')} dưới tên khách hàng "${custName.trim()}" với tổng tiền là ${totalAmount.toLocaleString('vi-VN')} đ. Tiến hành thanh toán chứ?`,
             onConfirm: executeBooking
         });
     };
@@ -345,7 +374,12 @@ const ServiceDetails = () => {
                 checkInDate,
                 checkOutDate: service.type === 'HOTEL' ? checkOutDate : checkInDate,
                 quantity: Number(quantity),
-                customerInfo: { fullName: "Nguyễn Văn Khách", phoneNumber: "0901234567", email: "test@ex.com" }
+                customerInfo: { 
+                    fullName: custName.trim(), 
+                    phoneNumber: custPhone.trim(), 
+                    email: custEmail.trim(),
+                    note: custNote.trim() || undefined
+                },  
             };
 
             const bookingRes = await axios.post('/api/bookings', payload, {
@@ -593,7 +627,45 @@ const ServiceDetails = () => {
                                         />
                                     </div>
                                 </div>
+                                <hr className="border-[#E0F2F1] my-4" />
+                                {/* FORM THÔNG TIN KHÁCH HÀNG (MỚI) */}
+                                <div className="space-y-4 bg-emerald-50/30 p-4 rounded-2xl border border-emerald-100/50">
+                                    <p className="text-[11px] font-extrabold text-[#004D40] uppercase tracking-wider flex items-center gap-1.5">
+                                        <User size={14} className="text-[#FFAB40]" /> Thông tin người liên hệ
+                                    </p>
+                                <div className="space-y-3">
+                                    <input
+                                        type="text"
+                                        placeholder="Họ và tên khách hàng *"
+                                        value={custName}
+                                        onChange={(e) => setCustName(e.target.value)}
+                                        className="w-full bg-white border border-[#E0F2F1] rounded-lg p-3 text-sm font-semibold outline-none focus:border-[#FFAB40] text-[#004D40] placeholder-gray-400"
+                                    />
+                                    <input
+                                        type="tel"
+                                        placeholder="Số điện thoại *"
+                                        value={custPhone}
+                                        onChange={(e) => setCustPhone(e.target.value)}
+                                        className="w-full bg-white border border-[#E0F2F1] rounded-lg p-3 text-sm font-semibold outline-none focus:border-[#FFAB40] text-[#004D40] placeholder-gray-400"
+                                    />
+                                    <input
+                                        type="email"
+                                        placeholder="Địa chỉ Email *"
+                                        value={custEmail}
+                                        onChange={(e) => setCustEmail(e.target.value)}
+                                        className="w-full bg-white border border-[#E0F2F1] rounded-lg p-3 text-sm font-semibold outline-none focus:border-[#FFAB40] text-[#004D40] placeholder-gray-400"
+                                    />   
+                                    <textarea
+                                        placeholder="Ghi chú đặc biệt cho nhà cung cấp (nếu có)..."
+                                        value={custNote}
+                                        onChange={(e) => setCustNote(e.target.value)}
+                                        maxLength={1000}
+                                        rows={2}
+                                        className="w-full bg-white border border-[#E0F2F1] rounded-lg p-3 text-sm font-medium outline-none focus:border-[#FFAB40] text-[#004D40] placeholder-gray-400 resize-none"
+                                    />
+                                </div>
                             </div>
+                        </div>
 
                             <div className="mt-6 flex justify-between items-center bg-[#F5F5F5] p-4 rounded-xl border border-[#E0F2F1]">
                                 <span className="text-sm font-bold text-[#004D40]">Tổng tạm tính:</span>
