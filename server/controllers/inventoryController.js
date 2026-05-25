@@ -61,58 +61,44 @@ export const bulkUpdateInventory = async (req, res) => {
     const operations = dateRange.map((date) => ({
       updateOne: {
         filter: { serviceId, date },
-        update: {
-          $set: { totalSlots, note },
-          $setOnInsert: { bookedSlots: 0, version: 0 },
-        },
+        update: [
+          {
+            $set: {
+              totalSlots: parseInt(totalSlots),
+              note: note || "",
+              // Nếu là document mới (chưa có bookedSlots), mặc định bookedSlots = 0, version = 0
+              bookedSlots: { $ifNull: ["$bookedSlots", 0] },
+              version: { $ifNull: [{ $add: ["$version", 1] }, 0] } 
+            }
+          },
+          {
+            $set: {
+              availableSlots: { $subtract: ["$totalSlots", "$bookedSlots"] }
+            }
+          },
+          {
+            $set: {
+              status: {
+                $cond: {
+                  if: { $eq: ["$availableSlots", 0] },
+                  then: "SOLD_OUT",
+                  else: {
+                    $cond: {
+                      if: { $lte: [{ $multiply: [{ $divide: ["$availableSlots", "$totalSlots"] }, 100] }, 30] },
+                      then: "LIMITED",
+                      else: "AVAILABLE"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ],
         upsert: true,
       },
     }));
 
     const result = await ServiceInventory.bulkWrite(operations, { session });
-
-    // Sau khi bulk upsert, cần cập nhật lại availableSlots và status cho tất cả ngày trong khoảng để đảm bảo tính chính xác
-    await ServiceInventory.updateMany(
-      { serviceId, date: { $gte: start, $lte: end } },
-      [
-        {
-          $set: {
-            availableSlots: { $subtract: ["$totalSlots", "$bookedSlots"] },
-            status: {
-              $cond: {
-                if: {
-                  $eq: [{ $subtract: ["$totalSlots", "$bookedSlots"] }, 0],
-                },
-                then: "SOLD_OUT",
-                else: {
-                  $cond: {
-                    if: {
-                      $lte: [
-                        {
-                          $multiply: [
-                            {
-                              $divide: [
-                                { $subtract: ["$totalSlots", "$bookedSlots"] },
-                                "$totalSlots",
-                              ],
-                            },
-                            100,
-                          ],
-                        },
-                        30,
-                      ],
-                    },
-                    then: "LIMITED",
-                    else: "AVAILABLE",
-                  },
-                },
-              },
-            },
-          },
-        },
-      ],
-      { session },
-    );
 
     await session.commitTransaction();
 
@@ -218,8 +204,20 @@ export const updateInventory = async (req, res) => {
       });
     }
 
-    inventory.totalSlots =
-      totalSlots !== undefined ? totalSlots : inventory.totalSlots;
+    if (totalSlots !== undefined) {
+      inventory.totalSlots = totalSlots;
+      inventory.availableSlots = totalSlots - inventory.bookedSlots;
+      
+      // Cập nhật trạng thái status trực quan
+      if (inventory.availableSlots === 0) {
+        inventory.status = "SOLD_OUT";
+      } else if ((inventory.availableSlots / inventory.totalSlots) * 100 <= 30) {
+        inventory.status = "LIMITED";
+      } else {
+        inventory.status = "AVAILABLE";
+      }
+    }
+    
     inventory.note = note !== undefined ? note : inventory.note;
     inventory.version += 1;
 
