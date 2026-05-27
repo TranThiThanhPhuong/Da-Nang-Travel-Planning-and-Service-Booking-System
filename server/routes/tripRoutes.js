@@ -5,7 +5,8 @@ import {
   getTripById,
   updateTrip,
   deleteTrip,
-  advanceTripStatus
+  advanceTripStatus,
+  getDashboardInsights,
 } from '../controllers/tripController.js';
 import { verifyClerkToken } from '../middlewares/auth.js';
 
@@ -19,5 +20,6 @@ router.get('/', getMyTrips);
 router.get('/:id', getTripById);
 router.put('/:id', updateTrip);
 router.delete('/:id', deleteTrip);
+router.post('/dashboard-insights', getDashboardInsights);
 
 export default router;

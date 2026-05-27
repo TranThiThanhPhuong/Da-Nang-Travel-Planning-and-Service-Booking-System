@@ -76,10 +76,11 @@ const serviceSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
-// MIDDLEWARE TỰ ĐỘNG TÍNH TOÁN
+// MIDDLEWARE TỰ ĐỘNG TÍNH TOÁN KHI SAVE (TẠO MỚI)
 serviceSchema.pre('save', function (next) {
-    if (this.pricePerUnit != null && this.discount != null) {
-        this.finalPrice = this.pricePerUnit * (1 - this.discount / 100);
+    if (this.pricePerUnit != null) {
+        const discountValue = this.discount || 0;
+        this.finalPrice = this.pricePerUnit * (1 - discountValue / 100);
     }
 
     if (this.name || this.address) {
@@ -87,19 +88,34 @@ serviceSchema.pre('save', function (next) {
         this.searchString = removeVietnameseTones(combinedString);
     }
 
-    next(); // CHỈ GỌI 1 LẦN Ở CUỐI
+    next();
 });
+
+// MIDDLEWARE TỰ ĐỘNG TÍNH TOÁN KHI UPDATE
 serviceSchema.pre('findOneAndUpdate', function (next) {
     const update = this.getUpdate();
-    const price = update.pricePerUnit ?? update.$set?.pricePerUnit;
-    const discount = update.discount ?? update.$set?.discount;
+    const currentSet = update.$set || update;
 
-    if (price != null || discount != null) {
-        const p = price != null ? price : 0;
-        const d = discount != null ? discount : 0;
-        if (!update.$set) update.$set = {};
-        update.$set.finalPrice = p * (1 - d / 100);
+    // 1. Tính toán lại finalPrice nếu có thay đổi pricePerUnit hoặc discount
+    if (currentSet.pricePerUnit !== undefined || currentSet.discount !== undefined) {
+        // Lưu ý: Nếu update thiếu 1 trong 2 trường, ta cần lấy tạm từ document gốc hoặc mặc định
+        // Để an toàn và triệt để nhất, logic controller nên gửi kèm cả 2 hoặc ta xử lý fallback:
+        const price = currentSet.pricePerUnit !== undefined ? currentSet.pricePerUnit : 0;
+        const discount = currentSet.discount !== undefined ? currentSet.discount : 0;
+        
+        currentSet.finalPrice = price * (1 - discount / 100);
     }
+
+    // 2. Tính toán lại searchString nếu sửa tên hoặc địa chỉ
+    if (currentSet.name || currentSet.address) {
+        const nameStr = currentSet.name || '';
+        const addressStr = currentSet.address || '';
+        const combinedString = `${nameStr} ${addressStr}`;
+        if (combinedString.trim()) {
+            currentSet.searchString = removeVietnameseTones(combinedString);
+        }
+    }
+
     next();
 });
 
