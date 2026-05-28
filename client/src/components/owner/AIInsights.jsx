@@ -118,7 +118,7 @@ const AIInsights = ({ bookings = [], services = [] }) => {
               </div>
               <div>
                 <h3 className="text-xs font-black text-[#004D40] uppercase tracking-wider">
-                  Khuyến nghị điều hành từ Trợ lý Gemini
+                  Khuyến nghị điều hành từ Trợ lý AI
                 </h3>
                 <p className="text-[11px] font-bold text-gray-400 mt-0.5">
                   Xu hướng: <span className="text-[#FFAB40]">{insights.statusText}</span>
@@ -131,48 +131,50 @@ const AIInsights = ({ bookings = [], services = [] }) => {
               💡 {insights.executiveSummary}
             </p>
 
-            {/* BẢNG / DANH SÁCH THEO HÀNG TỐI ƯU CÔNG NĂNG */}
-            <div className="overflow-hidden border border-gray-100 rounded-xl">
-              <div className="hidden md:grid grid-cols-12 bg-gray-50 p-3 text-[10px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100">
-                <div className="col-span-3">Phân loại / Tiêu đề</div>
-                <div className="col-span-5">Phân tích số liệu thực tế</div>
-                <div className="col-span-4">Hành động đề xuất</div>
+            {/* CHỈ HIỂN THỊ BẢNG BÁO CÁO NẾU CÓ CHỨA TÍN HIỆU CẢNH BÁO HOẶC CƠ HỘI ĐỘT BIẾN */}
+            {insights.signals && insights.signals.length > 0 && (
+              <div className="overflow-hidden border border-gray-100 rounded-xl mt-2">
+                <div className="hidden md:grid grid-cols-12 bg-gray-50 p-3 text-[10px] font-black text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                  <div className="col-span-3">Phân loại / Tiêu đề</div>
+                  <div className="col-span-5">Phân tích số liệu thực tế</div>
+                  <div className="col-span-4">Hành động đề xuất</div>
+                </div>
+
+                <div className="divide-y divide-gray-100">
+                  {insights.signals.map((signal, index) => {
+                    const config = getSignalConfig(signal.type);
+                    return (
+                      <div 
+                        key={index} 
+                        className={`grid grid-cols-1 md:grid-cols-12 p-3.5 gap-2 md:gap-4 items-start transition-colors ${config.bg}`}
+                      >
+                        {/* Tiêu đề & Loại */}
+                        <div className="col-span-3 flex flex-row md:flex-col items-center md:items-start justify-between md:justify-start gap-1.5">
+                          <span className={`text-[9px] font-black px-2 py-0.5 rounded border uppercase tracking-wider shrink-0 ${config.badge}`}>
+                            {signal.type}
+                          </span>
+                          <h4 className={`text-xs font-black flex items-center gap-1.5 ${config.text}`}>
+                            {config.icon} {signal.title}
+                          </h4>
+                        </div>
+
+                        {/* Nội dung phân tích số liệu */}
+                        <div className="col-span-5 text-[11px] font-medium text-gray-600 leading-relaxed">
+                          <span className="md:hidden font-bold text-gray-400 block text-[9px] uppercase mb-0.5">Phân tích:</span>
+                          {signal.content}
+                        </div>
+
+                        {/* Hành động khuyên dùng */}
+                        <div className="col-span-4 text-[11px] font-bold text-gray-700 bg-white/60 md:bg-transparent p-2 md:p-0 rounded-lg border border-gray-200/40 md:border-transparent">
+                          <span className="md:hidden font-black text-gray-400 block text-[9px] uppercase mb-1">Hành động:</span>
+                          <span className={config.text}>🚀 {signal.action}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-
-              <div className="divide-y divide-gray-100">
-                {insights.signals?.map((signal, index) => {
-                  const config = getSignalConfig(signal.type);
-                  return (
-                    <div 
-                      key={index} 
-                      className={`grid grid-cols-1 md:grid-cols-12 p-3.5 gap-2 md:gap-4 items-start transition-colors ${config.bg}`}
-                    >
-                      {/* Tiêu đề & Loại */}
-                      <div className="col-span-3 flex flex-row md:flex-col items-center md:items-start justify-between md:justify-start gap-1.5">
-                        <span className={`text-[9px] font-black px-2 py-0.5 rounded border uppercase tracking-wider shrink-0 ${config.badge}`}>
-                          {signal.type}
-                        </span>
-                        <h4 className={`text-xs font-black flex items-center gap-1.5 ${config.text}`}>
-                          {config.icon} {signal.title}
-                        </h4>
-                      </div>
-
-                      {/* Nội dung phân tích số liệu */}
-                      <div className="col-span-5 text-[11px] font-medium text-gray-600 leading-relaxed">
-                        <span className="md:hidden font-bold text-gray-400 block text-[9px] uppercase mb-0.5">Phân tích:</span>
-                        {signal.content}
-                      </div>
-
-                      {/* Hành động khuyên dùng */}
-                      <div className="col-span-4 text-[11px] font-bold text-gray-700 bg-white/60 md:bg-transparent p-2 md:p-0 rounded-lg border border-gray-200/40 md:border-transparent">
-                        <span className="md:hidden font-black text-gray-400 block text-[9px] uppercase mb-1">Hành động:</span>
-                        <span className={config.text}>🚀 {signal.action}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

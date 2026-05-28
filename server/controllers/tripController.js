@@ -444,6 +444,18 @@ export const advanceTripStatus = async (req, res) => {
 
 export const getDashboardInsights = async (req, res) => {
   try {
+    const ownerId = req.user._id;
+    const user = await User.findById(ownerId);
+    const packageCode = user?.currentPackage || 'STARTER';
+
+    // 2. Nếu không phải ULTIMATE, từ chối xử lý AI lập tức
+    if (packageCode !== 'ULTIMATE') {
+      return res.status(403).json({
+        success: false,
+        message: "Tính năng Trợ lý chiến lược AI chỉ dành riêng cho phân khúc gói ULTIMATE.",
+      });
+    }
+    
     const { bookings, services } = req.body; 
 
     if (!bookings || !services) {
