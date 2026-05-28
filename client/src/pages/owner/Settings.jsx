@@ -1,244 +1,359 @@
-import React, { useState, useEffect } from 'react'
-import { Save, Building2, CreditCard, User, QrCode, AlertTriangle } from 'lucide-react'
-import { motion } from 'framer-motion'
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { CreditCard, Eye, EyeOff, Save, RefreshCw,ShieldAlert } from 'lucide-react';
+import { useAuth } from '@clerk/clerk-react';
+import axios from 'axios';
+import FeedbackModal from '../../components/FeedbackModal';
+
+const inputLabel = "text-[10px] font-black text-[#004D40]/40 uppercase tracking-[0.2em] ml-1 mb-2 block";
+const inputStyle = "w-full bg-[#F5F5F5] border border-[#E0F2F1] rounded-tr-xl rounded-bl-xl p-4 outline-none focus:ring-2 focus:ring-[#FFAB40]/50 font-bold text-[#004D40] placeholder:text-gray-300 transition-all shadow-inner";
 
 const Settings = () => {
+    const { getToken } = useAuth();
+    
+    // Khởi tạo State form đúng Schema cấu trúc phân cấp
     const [formData, setFormData] = useState({
-        bankId: '',
+        bankName: '',
         accountNumber: '',
-        accountHolderName: ''
-    })
+        accountHolderName: '',
+        clientId: '',
+        apiKey: '',
+        checksumKey: ''
+    });
 
-    const [banks, setBanks] = useState([])
-    const [qrPreview, setQrPreview] = useState('')
-    const [isLoading, setIsLoading] = useState(false)
-    const [isVerified, setIsVerified] = useState(false)
+    const [errors, setErrors] = useState({});
+    const [loading, setLoading] = useState(true);
+    const [showKeys, setShowKeys] = useState({ clientId: false, apiKey: false, checksumKey: false });
 
-    useEffect(() => {
-        const fetchBanks = async () => {
-            try {
-                const response = await fetch('https://api.vietqr.io/v2/banks')
-                const result = await response.json()
-                if (result.code === '00') {
-                    setBanks(result.data)
-                }
-            } catch (error) {
-                console.error("Lỗi khi tải danh sách ngân hàng:", error)
+    // Trạng thái điều khiển FeedbackModal
+    const [modalConfig, setModalConfig] = useState({ isOpen: false, type: 'info', title: '', message: '', onConfirm: null });
+
+    // ⚡ Lấy cấu hình hiện tại từ Database lên Form
+    const fetchPaymentData = async () => {
+        try {
+            setLoading(true);
+            const token = await getToken();
+            const response = await axios.get('/api/owner-applications/payment-config', {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.data?.success) {
+                const { bankAccount, payos } = response.data.data;
+                setFormData({
+                    bankName: bankAccount?.bankName || '',
+                    accountNumber: bankAccount?.accountNumber || '',
+                    accountHolderName: bankAccount?.accountHolderName || '',
+                    clientId: payos?.clientId || '',
+                    apiKey: payos?.apiKey || '',
+                    checksumKey: payos?.checksumKey || ''
+                });
             }
+        } catch (error) {
+            console.error("Lỗi lấy thông tin cấu hình:", error);
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Lỗi đồng bộ dữ liệu',
+                message: error.response?.data?.message || 'Không thể tải cấu hình tài chính từ hệ thống.'
+            });
+        } finally {
+            setLoading(false);
         }
-        fetchBanks()
-    }, [])
+    };
 
-    const handleChange = (e) => {
-        const { name, value } = e.target
+    useEffect(() => { fetchPaymentData(); }, []);
 
-        // VALIDATE SỐ TÀI KHOẢN: Chỉ giữ lại số
-        if (name === 'accountNumber') {
-            const onlyNumbers = value.replace(/\D/g, '')
-            setFormData({ ...formData, [name]: onlyNumbers })
-            setIsVerified(false)
-            return
+    // 👁️ Ẩn/Hiện mã bảo mật Key
+    const toggleKeyVisibility = (field) => {
+        setShowKeys(prev => ({ ...prev, [field]: !prev[field] }));
+    };
+
+    // ✍️ Quản lý thay đổi dữ liệu (In hoa tên chủ tài khoản tự động như logic form cũ)
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        const formattedValue = name === "accountHolderName" ? value.toUpperCase() : value;
+
+        setFormData(prev => ({ ...prev, [name]: formattedValue }));
+        validateField(name, formattedValue);
+    };
+
+    // 🎯 Thực hiện Client-side Validation theo định dạng Regex Mongoose Schema
+    const validateField = (name, value) => {
+        let tempErrors = { ...errors };
+
+        if (name === "accountNumber") {
+            const accRegex = /^[0-9]{6,15}$/;
+            tempErrors.accountNumber = accRegex.test(value) ? "" : "Số tài khoản chỉ chứa số và có độ dài từ 6 đến 15 ký tự.";
+        }
+        if (name === "accountHolderName") {
+            tempErrors.accountHolderName = value.trim() ? "" : "Tên chủ tài khoản không được bỏ trống.";
+        }
+        setErrors(tempErrors);
+    };
+
+    // 💾 Luồng xử lý Lưu thông tin qua bước xác nhận (Confirm) của FeedbackModal
+    const handleSubmitConfirm = (e) => {
+        e.preventDefault();
+
+        // Check lỗi tổng thể trước khi mở modal
+        if (errors.accountNumber || errors.accountHolderName || !formData.bankName) {
+            setModalConfig({ isOpen: true, type: 'warning', title: 'Dữ liệu không đúng', message: 'Vui lòng kiểm tra lại các trường lỗi màu đỏ trước khi lưu.' });
+            return;
         }
 
-        // VALIDATE TÊN CHỦ TÀI KHOẢN: Ép hoa, bỏ dấu, bỏ số & ký tự đặc biệt
-        if (name === 'accountHolderName') {
-            let formattedName = value.toUpperCase()
+        setModalConfig({
+            isOpen: true,
+            type: 'confirm',
+            title: 'Xác nhận đổi cấu hình?',
+            message: 'Thay đổi thông tin tài khoản thụ hưởng và key cổng PayOS sẽ ảnh hưởng trực tiếp đến dòng tiền thanh toán tự động của toàn bộ khách đặt dịch vụ từ lúc này.',
+            confirmText: 'Đồng ý cập nhật',
+            cancelText: 'Xem xét lại',
+            onConfirm: executeUpdateConfig
+        });
+    };
 
-            // Khử dấu tiếng Việt chuẩn Unicode
-            formattedName = formattedName
-                .normalize("NFD") // Tách chữ và dấu
-                .replace(/[\u0300-\u036f]/g, "") // Xóa các dấu
-                .replace(/Đ/g, "D") // Chuyển chữ Đ thành D
+    // 🚀 Thực thi hàm gọi API cập nhật xuống cơ sở dữ liệu
+    const executeUpdateConfig = async () => {
+        try {
+            // Chuyển sang trạng thái Loading Modal
+            setModalConfig({ isOpen: true, type: 'loading', title: 'Đang xử lý dữ liệu', message: 'Hệ thống đang đồng bộ và mã hóa thông tin dòng tiền an toàn...' });
+            
+            const token = await getToken();
+            const updatePayload = {
+                bankAccount: {
+                    bankName: formData.bankName,
+                    accountNumber: formData.accountNumber,
+                    accountHolderName: formData.accountHolderName
+                },
+                payos: {
+                    clientId: formData.clientId,
+                    apiKey: formData.apiKey,
+                    checksumKey: formData.checksumKey
+                }
+            };
 
-            // Xóa mọi thứ KHÔNG phải là chữ cái (A-Z) và khoảng trắng
-            formattedName = formattedName.replace(/[^A-Z\s]/g, '')
+            const response = await axios.put('/api/owner-applications/payment-config', updatePayload, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
 
-            setFormData({ ...formData, [name]: formattedName })
-            setIsVerified(false)
-            return
+            if (response.data?.success) {
+                setModalConfig({
+                    isOpen: true,
+                    type: 'success',
+                    title: 'Thành công!',
+                    message: 'Cấu hình tài chính nhận tiền và cổng thanh toán đối tác đã thay đổi thành công.',
+                    onClose: () => {
+                        setModalConfig(prev => ({ ...prev, isOpen: false }));
+                        fetchPaymentData(); // Tải lại form để nhận chuỗi Masked mới từ Server
+                    }
+                });
+            }
+        } catch (error) {
+            setModalConfig({
+                isOpen: true,
+                type: 'error',
+                title: 'Cập nhật thất bại',
+                message: error.response?.data?.message || 'Có lỗi xảy ra trong quá trình ghi dữ liệu bảo mật.'
+            });
         }
+    };
 
-        if (name === 'bankId') {
-            setIsVerified(false)
-        }
-
-        setFormData({ ...formData, [name]: value })
+    if (loading) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[400px] gap-3">
+                <RefreshCw className="animate-spin text-[#004D40]" size={32} />
+                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Đang tải cấu hình dòng tiền...</p>
+            </div>
+        );
     }
-
-    useEffect(() => {
-        if (formData.bankId && formData.accountNumber.length >= 6 && formData.accountHolderName) {
-            const url = `https://img.vietqr.io/image/${formData.bankId}-${formData.accountNumber}-compact2.png?accountName=${encodeURIComponent(formData.accountHolderName)}`
-            setQrPreview(url)
-        } else {
-            setQrPreview('')
-            setIsVerified(false)
-        }
-    }, [formData.bankId, formData.accountNumber, formData.accountHolderName])
-
-    const handleSubmit = (e) => {
-        e.preventDefault()
-        if (formData.accountNumber.length < 6) {
-            alert("Số tài khoản không hợp lệ (Quá ngắn)!")
-            return
-        }
-
-        setIsLoading(true)
-        setTimeout(() => {
-            console.log("Dữ liệu an toàn lưu vào DB:", formData)
-            alert("Đã lưu thông tin tài khoản thành công!")
-            setIsLoading(false)
-        }, 1000)
-    }
-
-    // Input Style dùng chung cho D-PULSE
-    const inputStyle = "w-full pl-11 pr-4 py-3 bg-white/60 border border-[#E0F2F1] rounded-tr-xl rounded-bl-xl rounded-tl-md rounded-br-md focus:ring-2 focus:ring-[#004D40]/20 outline-none text-sm font-bold text-[#004D40] placeholder-[#004D40]/30 transition-all"
 
     return (
-        <div className="max-w-5xl mx-auto space-y-8 font-jakarta pb-10">
-            <div>
-                <motion.h1
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    className="text-3xl font-cormorant font-bold text-[#004D40]"
-                >
-                    Cài đặt Thanh toán
-                </motion.h1>
-                <p className="text-[#004D40]/60 mt-1 font-medium text-sm">Cấu hình tài khoản ngân hàng để nhận tiền trực tiếp từ khách đặt phòng.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {/* CỘT TRÁI: Form nhập thông tin */}
-                <div className="md:col-span-2">
-                    <motion.form
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1 }}
-                        onSubmit={handleSubmit}
-                        className="bg-white/80 backdrop-blur-[10px] rounded-tr-[40px] rounded-bl-[40px] rounded-tl-2xl rounded-br-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 overflow-hidden"
-                    >
-                        <div className="p-8 space-y-6">
-
-                            <div>
-                                <label className="block text-sm font-bold text-[#004D40] mb-2">Ngân hàng thụ hưởng <span className="text-[#FFAB40]">*</span></label>
-                                <div className="relative">
-                                    <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-[#004D40]/40" size={18} />
-                                    <select
-                                        name="bankId"
-                                        value={formData.bankId}
-                                        onChange={handleChange}
-                                        className={`${inputStyle} appearance-none cursor-pointer pr-10`}
-                                        required
-                                    >
-                                        <option value="">-- Chọn ngân hàng --</option>
-                                        {banks.map(bank => (
-                                            <option key={bank.bin} value={bank.bin}>{bank.shortName} - {bank.name}</option>
-                                        ))}
-                                    </select>
-                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-[#004D40]/50">
-                                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-bold text-[#004D40] mb-2">Số tài khoản <span className="text-[#FFAB40]">*</span></label>
-                                <div className="relative">
-                                    <CreditCard className="absolute left-4 top-1/2 -translate-y-1/2 text-[#004D40]/40" size={18} />
-                                    <input
-                                        type="text"
-                                        name="accountNumber"
-                                        value={formData.accountNumber}
-                                        onChange={handleChange}
-                                        placeholder="Chỉ nhập số..."
-                                        className={`${inputStyle} font-mono tracking-wider`}
-                                        required
-                                    />
-                                </div>
-                                {formData.accountNumber.length > 0 && formData.accountNumber.length < 6 && (
-                                    <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-xs font-bold text-red-500 mt-2 flex items-center gap-1.5">
-                                        <AlertTriangle size={14} /> Số tài khoản quá ngắn
-                                    </motion.p>
-                                )}
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-bold text-[#004D40] mb-2">Tên chủ tài khoản <span className="text-[#FFAB40]">*</span></label>
-                                <div className="relative">
-                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-[#004D40]/40" size={18} />
-                                    <input
-                                        type="text"
-                                        name="accountHolderName"
-                                        value={formData.accountHolderName}
-                                        onChange={handleChange}
-                                        placeholder="VD: LE VAN TUAN LOC"
-                                        className={`${inputStyle} font-mono tracking-wider uppercase`}
-                                        required
-                                    />
-                                </div>
-                            </div>
-
-                        </div>
-
-                        {/* Footer Form */}
-                        <div className="bg-white/40 px-8 py-5 border-t border-[#004D40]/5 flex justify-between items-center">
-                            <p className="text-xs font-semibold text-[#004D40]/50 italic">* Vui lòng xác nhận QR Code bên cạnh trước khi lưu.</p>
-
-                            <motion.button
-                                whileHover={{ scale: (isLoading || !isVerified) ? 1 : 1.05 }}
-                                whileTap={{ scale: (isLoading || !isVerified) ? 1 : 0.95 }}
-                                type="submit"
-                                disabled={isLoading || !isVerified}
-                                className="flex items-center gap-2 bg-[#004D40] text-white px-7 py-3 rounded-tr-[20px] rounded-bl-[20px] rounded-tl-md rounded-br-md font-bold transition-all shadow-lg shadow-[#004D40]/20 disabled:bg-gray-300 disabled:text-gray-500 disabled:shadow-none disabled:cursor-not-allowed hover:bg-[#00332A]"
-                            >
-                                <Save size={18} /> {isLoading ? 'Đang lưu...' : 'Lưu tài khoản'}
-                            </motion.button>
-                        </div>
-                    </motion.form>
+        <div className="max-w-4xl mx-auto space-y-8 font-jakarta pb-10">
+            {/* Header thông tin cấu hình */}
+            <div className="flex items-center gap-4 border-b border-gray-100 pb-5">
+                <div className="w-12 h-12 bg-[#004D40] text-[#FFAB40] rounded-tr-2xl rounded-bl-2xl flex items-center justify-center shadow-lg">
+                    <CreditCard size={24} />
                 </div>
-
-                {/* CỘT PHẢI: Preview QR Code & Checkbox */}
-                <div className="md:col-span-1">
-                    <motion.div
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                        className="bg-white/80 backdrop-blur-[10px] rounded-tr-[40px] rounded-bl-[40px] rounded-tl-2xl rounded-br-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 p-8 flex flex-col items-center justify-center text-center h-full min-h-[380px]"
-                    >
-                        {qrPreview ? (
-                            <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center">
-                                <h3 className="font-cormorant font-bold text-xl text-[#004D40] mb-5">Mã QR Thanh toán</h3>
-                                <div className="p-3 bg-white border border-[#E0F2F1] shadow-sm rounded-tr-2xl rounded-bl-2xl rounded-tl-lg rounded-br-lg">
-                                    <img src={qrPreview} alt="VietQR Preview" className="w-44 h-44 object-contain" />
-                                </div>
-
-                                <div className="mt-8 bg-[#E0F2F1]/50 p-4 rounded-tr-2xl rounded-bl-2xl rounded-tl-lg rounded-br-lg border border-[#004D40]/10 text-left w-full transition-colors hover:bg-[#E0F2F1]">
-                                    <label className="flex items-start gap-3 cursor-pointer group">
-                                        <input
-                                            type="checkbox"
-                                            checked={isVerified}
-                                            onChange={(e) => setIsVerified(e.target.checked)}
-                                            className="mt-1 w-4 h-4 text-[#004D40] border-[#004D40]/30 rounded focus:ring-[#004D40] cursor-pointer accent-[#FFAB40]"
-                                        />
-                                        <span className="text-xs text-[#004D40] font-semibold leading-relaxed group-hover:text-[#00332A] transition-colors">
-                                            Tôi đã dùng App Ngân hàng quét thử mã QR này và xác nhận thông tin thụ hưởng là hoàn toàn chính xác.
-                                        </span>
-                                    </label>
-                                </div>
-                            </motion.div>
-                        ) : (
-                            <div className="flex flex-col items-center">
-                                <QrCode className="text-[#004D40]/20 mb-5" size={56} strokeWidth={1.5} />
-                                <h3 className="font-cormorant font-bold text-xl text-[#004D40] mb-2">Chưa có mã QR</h3>
-                                <p className="text-sm font-medium text-[#004D40]/50 leading-relaxed px-4">
-                                    Vui lòng điền đầy đủ thông tin bên trái để hệ thống tạo mã QR kiểm tra.
-                                </p>
-                            </div>
-                        )}
-                    </motion.div>
+                <div>
+                    <h1 className="text-3xl font-cormorant font-bold text-[#004D40]">Cấu hình ví nhận tiền & Cổng thanh toán</h1>
+                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Thiết lập tài khoản ngân hàng đối soát trực tiếp và đồng bộ cổng VietQR từ PayOS</p>
                 </div>
             </div>
+
+            {/* Khối Alert cảnh báo bảo mật */}
+            <div className="bg-amber-50/60 border border-amber-200 rounded-2xl p-4 flex gap-3 text-xs text-amber-900">
+                <ShieldAlert className="text-amber-600 shrink-0 mt-0.5" size={18} />
+                <div>
+                    <span className="font-black uppercase tracking-wider block mb-0.5">Lưu ý an toàn mật mã dữ liệu:</span>
+                    <p className="font-medium text-gray-600 leading-relaxed">Để bảo vệ ví đối tác của bạn, các trường thông tin mã kết nối PayOS cũ sẽ được hệ thống che khuất dạng ẩn mã định danh. **Nếu bạn không thay đổi khóa bảo mật, vui lòng giữ nguyên chuỗi ẩn mã hiển thị trên form này khi ấn cập nhật.**</p>
+                </div>
+            </div>
+
+            {/* Khung nhập liệu cấu hình chính */}
+            <form onSubmit={handleSubmitConfirm} className="bg-white/80 backdrop-blur-md p-8 border border-[#004D40]/10 rounded-tr-[40px] rounded-bl-[40px] rounded-tl-2xl rounded-br-2xl shadow-sm space-y-8">
+                
+                {/* PHÂN ĐOẠN 1: NGÂN HÀNG THỤ HƯỞNG */}
+                <section>
+                    <div className="flex items-center gap-3 mb-6 border-b border-gray-50 pb-2">
+                        <span className="text-sm font-black text-[#004D40] uppercase tracking-wide">❖ Tài khoản đối soát thụ hưởng</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label className={inputLabel}>Ngân hàng thụ hưởng</label>
+                            <input
+                                required
+                                name="bankName"
+                                value={formData.bankName}
+                                onChange={handleInputChange}
+                                type="text"
+                                placeholder="VD: Vietcombank, Techcombank..."
+                                className={inputStyle}
+                            />
+                        </div>
+                        <div>
+                            <label className={inputLabel}>Số tài khoản</label>
+                            <input
+                                required
+                                name="accountNumber"
+                                value={formData.accountNumber}
+                                onChange={handleInputChange}
+                                type="text"
+                                placeholder="0123 456 789"
+                                className={`${inputStyle} ${errors.accountNumber ? "border-red-500 ring-1 ring-red-500" : ""}`}
+                            />
+                            {errors.accountNumber && (
+                                <p className="text-red-500 text-[11px] mt-1.5 font-bold">{errors.accountNumber}</p>
+                            )}
+                        </div>
+                        <div className="md:col-span-2">
+                            <label className={inputLabel}>Chủ tài khoản (In hoa không dấu)</label>
+                            <input
+                                required
+                                name="accountHolderName"
+                                value={formData.accountHolderName}
+                                onChange={handleInputChange}
+                                type="text"
+                                placeholder="VD: NGUYEN VAN A"
+                                className={`${inputStyle} ${errors.accountHolderName ? "border-red-500 ring-1 ring-red-500" : ""}`}
+                            />
+                            {errors.accountHolderName && (
+                                <p className="text-red-500 text-[11px] mt-1.5 font-bold">{errors.accountHolderName}</p>
+                            )}
+                        </div>
+                    </div>
+                </section>
+
+                {/* PHÂN ĐOẠN 2: THÔNG TIN KẾT NỐI CỔNG PAYOS */}
+                <section className="pt-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-6 border-b border-gray-50 pb-2">
+                        <span className="text-sm font-black text-[#004D40] uppercase tracking-wide">❖ Tích hợp hạ tầng PayOS</span>
+                        <a
+                            href="https://payos.vn/docs/huong-dan-su-dung/tao-kenh-thanh-toan/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-[11px] font-black text-[#FFAB40] hover:underline flex items-center gap-1 bg-[#004D40]/5 px-3 py-1.5 rounded-full w-fit"
+                        >
+                            <span>Tài liệu cấu hình tích hợp API PayOS ↗</span>
+                        </a>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {/* CLIENT ID */}
+                        <div>
+                            <label className={inputLabel}>Client ID</label>
+                            <div className="relative">
+                                <input
+                                    required
+                                    name="clientId"
+                                    value={formData.clientId}
+                                    onChange={handleInputChange}
+                                    type={showKeys.clientId ? "text" : "password"}
+                                    placeholder="Nhập Client ID PayOS"
+                                    className={`${inputStyle} pr-12`}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => toggleKeyVisibility("clientId")}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#004D40] transition-colors"
+                                >
+                                    {showKeys.clientId ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* API KEY */}
+                        <div>
+                            <label className={inputLabel}>API Key</label>
+                            <div className="relative">
+                                <input
+                                    required
+                                    name="apiKey"
+                                    value={formData.apiKey}
+                                    onChange={handleInputChange}
+                                    type={showKeys.apiKey ? "text" : "password"}
+                                    placeholder="Nhập API Key"
+                                    className={`${inputStyle} pr-12`}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => toggleKeyVisibility("apiKey")}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#004D40] transition-colors"
+                                >
+                                    {showKeys.apiKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* CHECKSUM KEY */}
+                        <div>
+                            <label className={inputLabel}>Checksum Key</label>
+                            <div className="relative">
+                                <input
+                                    required
+                                    name="checksumKey"
+                                    value={formData.checksumKey}
+                                    onChange={handleInputChange}
+                                    type={showKeys.checksumKey ? "text" : "password"}
+                                    placeholder="Nhập Checksum Key"
+                                    className={`${inputStyle} pr-12`}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => toggleKeyVisibility("checksumKey")}
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#004D40] transition-colors"
+                                >
+                                    {showKeys.checksumKey ? <EyeOff size={18} /> : <Eye size={18} />}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                {/* KHỐI NÚT BẤM LƯU ĐƠN HÀNG */}
+                <div className="flex justify-end pt-4 border-t border-gray-100">
+                    <button
+                        type="submit"
+                        className="flex items-center gap-2 bg-[#004D40] hover:bg-[#00332a] text-white font-bold py-3.5 px-8 rounded-tr-2xl rounded-bl-2xl rounded-tl-lg rounded-br-lg shadow-lg shadow-[#004D40]/20 transition-all transform hover:-translate-y-0.5"
+                    >
+                        <Save size={16} className="text-[#FFAB40]" />
+                        <span>Cập nhật cấu hình dòng tiền</span>
+                    </button>
+                </div>
+            </form>
+
+            {/* DIỀU KHIỂN FEEDBACK MODAL HỆ THỐNG */}
+            <FeedbackModal
+                isOpen={modalConfig.isOpen}
+                type={modalConfig.type}
+                title={modalConfig.title}
+                message={modalConfig.message}
+                confirmText={modalConfig.confirmText}
+                cancelText={modalConfig.cancelText}
+                onConfirm={modalConfig.onConfirm}
+                onClose={modalConfig.onClose || (() => setModalConfig(prev => ({ ...prev, isOpen: false })))}
+            />
         </div>
-    )
-}
+    );
+};
 
-export default Settings
+export default Settings;

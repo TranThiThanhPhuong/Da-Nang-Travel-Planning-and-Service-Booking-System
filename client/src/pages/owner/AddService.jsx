@@ -41,8 +41,19 @@ const AddService = () => {
 
   const [quotaStatus, setQuotaStatus] = useState({ isChecking: true, reached: false, limit: 0 });
 
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, data: null });
+  const [feedbackModal, setFeedbackModal] = useState({ isOpen: false, type: "success", title: "", message: "" });
+
   const serviceType = watch("type");
+  const pricePerUnit = watch("pricePerUnit");
+  const discount = watch("discount");
   const getFeatureGroups = () => FEATURES_CONFIG[serviceType] || [];
+  
+  const calculatedFinalPrice = React.useMemo(() => {
+    const price = Number(pricePerUnit) || 0;
+    const disc = Number(discount) || 0;
+    return price * (1 - disc / 100);
+  }, [pricePerUnit, discount]);
 
   useEffect(() => {
     if (isEditMode) {
@@ -325,6 +336,16 @@ const AddService = () => {
                     <label className="block text-sm font-bold text-[#004D40] mb-1.5">{getPriceLabel()} (VNĐ) <span className="text-[#FFAB40]">*</span></label>
                     <input {...register("pricePerUnit", { required: true })} type="number" placeholder="0" className={inputStyle} />
                   </div>
+                  <div>
+                    <label className="block text-sm font-bold text-[#004D40] mb-1.5">Khuyến mãi (%)</label>
+                    <input {...register("discount", { min: 0, max: 100 })} type="number" placeholder="0" className={inputStyle} />
+                  </div>
+                </div>
+                <div className="p-4 bg-[#E0F2F1]/40 border border-[#004D40]/10 rounded-tr-2xl rounded-bl-2xl flex justify-between items-center">
+                  <span className="text-xs font-bold text-[#004D40]/70">Giá thực tế hiển thị cho khách hàng:</span>
+                  <span className="text-lg font-black text-[#004D40]">
+                    {calculatedFinalPrice.toLocaleString('vi-VN')} VNĐ
+                  </span>
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-[#004D40] mb-1.5">Mô tả chi tiết <span className="text-[#FFAB40]">*</span></label>

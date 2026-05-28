@@ -232,6 +232,7 @@ export const getServiceById = async (req, res) => {
     });
   }
 };
+
 // @desc    Update service
 // @route   PUT /api/services/:id
 // @access  Private/Owner
@@ -253,25 +254,23 @@ export const updateService = async (req, res) => {
       });
     }
 
-    // Prevent editing if APPROVED (optional - tùy business logic)
-    // if (service.approvalStatus === 'APPROVED') {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: 'Không thể sửa dịch vụ đã được duyệt',
-    //   });
-    // }
+    const updateData = { ...req.body };
 
-    if (req.body.coordinates) {
-      req.body.location = {
+    if (updateData.coordinates) {
+      updateData.location = {
         type: 'Point',
-        coordinates: req.body.coordinates,
+        coordinates: updateData.coordinates,
       };
-      delete req.body.coordinates;
+      delete updateData.coordinates;
     }
+
+    const finalPricePerUnit = updateData.pricePerUnit !== undefined ? Number(updateData.pricePerUnit) : service.pricePerUnit;
+    const finalDiscount = updateData.discount !== undefined ? Number(updateData.discount) : service.discount;
+    updateData.finalPrice = finalPricePerUnit * (1 - finalDiscount / 100);
 
     service = await Service.findByIdAndUpdate(
       req.params.id,
-      { $set: req.body },
+      { $set: updateData },
       { new: true, runValidators: true }
     );
 

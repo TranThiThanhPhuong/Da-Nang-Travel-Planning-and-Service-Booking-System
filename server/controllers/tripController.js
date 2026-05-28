@@ -2,6 +2,7 @@ import Trip from "../models/Trip.js";
 import Booking from "../models/Booking.js";
 import { callAItoSchedule } from "../services/apiTripService.js";
 import { filterServicesForTrip } from "../services/serviceFilterService.js";
+import { generateDashboardInsights } from '../services/allnsight.js'
 
 // @desc    Generate trip itinerary using AI
 // @route   POST /api/trips/generate
@@ -437,6 +438,33 @@ export const advanceTripStatus = async (req, res) => {
       success: false,
       message: "Có lỗi xảy ra khi chuyển trạng thái chuyến đi",
       error: error.message,
+    });
+  }
+};
+
+export const getDashboardInsights = async (req, res) => {
+  try {
+    const { bookings, services } = req.body; 
+
+    if (!bookings || !services) {
+      return res.status(400).json({
+        success: false,
+        message: "Thiếu dữ liệu đối soát cấu trúc kế toán để chạy AI",
+      });
+    }
+
+    const aiAnalysis = await generateDashboardInsights(bookings, services);
+
+    return res.status(200).json({
+      success: true,
+      data: aiAnalysis
+    });
+  } catch (error) {
+    console.error("❌ Error in Insight Controller:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi phân tích chiến lược doanh nghiệp",
+      error: error.message
     });
   }
 };

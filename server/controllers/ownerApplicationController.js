@@ -263,3 +263,107 @@ export const cancelApplication = async (req, res) => {
     });
   }
 };
+
+// @desc    Lấy thông tin tài khoản ngân hàng và cổng PayOS hiện tại của Owner
+// @route   GET /api/owner-applications/payment-config
+// @access  Private (Chỉ đối tác)
+export const getPaymentConfig = async (req, res) => {
+  try {
+    // Ép lấy các trường select: false bằng dấu cộng (+) phục vụ mục đích hiển thị cấu hình cho chính chủ sở hữu
+    const application = await OwnerApplication.findOne({ 
+      userId: req.user._id,
+      status: 'APPROVED' 
+    }).select('+payos.clientId +payos.apiKey +payos.checksumKey').sort({ createdAt: -1 });
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy hồ sơ đối tác được phê duyệt của tài khoản này.",
+      });
+    }
+
+    // Che bớt thông tin key (Masking dữ liệu nhạy cảm gửi về client)
+    const maskKey = (str) => {
+      if (!str) return '';
+      if (str.length <= 8) return '********';
+      return `${str.substring(0, 4)}...${str.substring(str.length - 4)}`;
+    };
+
+    res.status(200).json({
+      success: true,
+      data: {
+        bankAccount: application.bankAccount,
+        payos: {
+          clientId: maskKey(application.payos?.clientId),
+          apiKey: maskKey(application.payos?.apiKey),
+          checksumKey: maskKey(application.payos?.checksumKey),
+          // Gửi cờ kiểm tra xem DB đã có dữ liệu hay chưa để phục vụ UI placeholder/validation
+          hasClientId: !!application.payos?.clientId,
+          hasApiKey: !!application.payos?.apiKey,
+          hasChecksumKey: !!application.payos?.checksumKey,
+        }
+      }
+    });
+  } catch (error) {
+    console.error("Get payment config error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// @desc    Cập nhật thông tin cấu hình thanh toán PayOS và Ngân hàng
+// @route   PUT /api/owner-applications/payment-config
+// @access  Private (Chỉ đối tác)
+export const updatePaymentConfig = async (req, res) => {
+  try {
+    const { bankAccount, payos } = req.body;
+
+    // Validate nhanh dữ liệu đầu vào ngân hàng
+    if (!bankAccount?.bankName || !bankAccount?.accountNumber || !bankAccount?.accountHolderName) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng nhập đầy đủ thông tin tài khoản ngân hàng thụ hưởng.",
+      });
+    }
+
+    // Tìm đơn đăng ký gần nhất đã được duyệt của Owner này
+    const application = await OwnerApplication.findOne({ 
+      userId: req.user._id,
+      status: 'APPROVED' 
+    }).select('+payos.clientId +payos.apiKey +payos.checksumKey').sort({ createdAt: -1 });
+
+    if (!application) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy hồ sơ đối tác hợp lệ để cập nhật cấu hình.",
+      });
+    }
+
+    // Cập nhật thông tin ngân hàng
+    application.bankAccount = {
+      bankName: bankAccount.bankName,
+      accountNumber: bankAccount.accountNumber,
+      accountHolderName: bankAccount.accountHolderName.toUpperCase().trim()
+    };
+
+    // Xử lý ghi đè PayOS: Chỉ ghi đè khi người dùng nhập chuỗi mới (không phải chuỗi đã mask dạng "...")
+    if (payos?.clientId && !payos.clientId.includes('...')) {
+      application.payos.clientId = payos.clientId;
+    }
+    if (payos?.apiKey && !payos.apiKey.includes('...')) {
+      application.payos.apiKey = payos.apiKey;
+    }
+    if (payos?.checksumKey && !payos.checksumKey.includes('...')) {
+      application.payos.checksumKey = payos.checksumKey;
+    }
+
+    await application.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Cấu hình dòng tiền và cổng thanh toán đối tác cập nhật thành công.",
+    });
+  } catch (error) {
+    console.error("Update payment config error:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
