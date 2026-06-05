@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import ApiError from '../utils/ApiError.js';
 import { removeVietnameseTones } from '../utils/stringUtils.js';
+import axios from 'axios';
 
 // @desc    Lấy danh sách dịch vụ (Có Lọc, Tìm kiếm, Phân trang, Sắp xếp, Ưu tiên gói VIP)
 // @route   GET /api/services
@@ -348,5 +349,45 @@ export const getPremiumBannerServices = async (req, res, next) => {
     return ApiResponse.send(res, 200, 'Lấy danh sách banner cao cấp thành công.', premiumBanners);
   } catch (error) {
     next(error);
+  }
+};
+
+// @desc    Lấy danh sách gợi ý dịch vụ từ AI Engine (Hugging Face)
+// @route   GET /api/services/recommendations
+// @access  Private (Chỉ user đã đăng nhập)
+export const getAIRecommendations = async (req, res, next) => {
+  try {
+    const userId = req.user._id;
+
+    // 1. Gọi API sang Python (Hugging Face Spaces)
+    const aiResponse = await axios.get(`https://tuanloc78-dpulse-ai-service.hf.space/recommend/${userId}?limit=6`);
+
+    // Nếu User mới tinh, chưa có data để AI phân tích
+    if (!aiResponse.data.success || !aiResponse.data.data || aiResponse.data.data.length === 0) {
+      return ApiResponse.send(res, 200, 'Chưa đủ dữ liệu để tạo gợi ý.', []);
+    }
+
+    // Lấy mảng ID từ Python trả về
+    const recommendedIds = aiResponse.data.data.map(item => item.service_id);
+
+    // 2. Query MongoDB để lấy thông tin chi tiết (lọc những cái đã duyệt)
+    const services = await Service.find({
+      _id: { $in: recommendedIds },
+      approvalStatus: 'APPROVED'
+    });
+
+    // 3. QUAN TRỌNG: MongoDB $in không giữ đúng thứ tự. 
+    // Phải sort lại mảng theo đúng thứ tự điểm Cosine Similarity từ AI
+    const sortedServices = recommendedIds
+      .map(id => services.find(s => s._id.toString() === id))
+      .filter(Boolean); // Lọc bỏ nếu service đó lỡ bị xóa hoặc ẩn khỏi DB
+
+    return ApiResponse.send(res, 200, 'Lấy danh sách gợi ý AI thành công.', sortedServices);
+
+  } catch (error) {
+    // Tình huống Fallback: Nếu AI sập, không dùng ApiError ném 500 làm sập Web.
+    // In log ra terminal server và trả về mảng rỗng cho Frontend an toàn hiển thị.
+    console.error("[❌ AI ENGINE ERROR] Lỗi kết nối Hugging Face:", error.message);
+    return ApiResponse.send(res, 200, 'Hệ thống AI tạm thời không phản hồi.', []);
   }
 };

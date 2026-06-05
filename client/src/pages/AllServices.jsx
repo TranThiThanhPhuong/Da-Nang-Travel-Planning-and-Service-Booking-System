@@ -2,12 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, MapPin, Star, Filter, Utensils, Bed, Ticket, ChevronRight, SlidersHorizontal, Tag, ChevronDown, Sparkles, TrendingUp, TrendingDown } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+import axios from 'axios';
+import { useAuth, useUser } from '@clerk/clerk-react';
 
 const AllServices = () => {
     const navigate = useNavigate();
     const location = useLocation();
 
-    // Hàm bổ trợ đọc các URL Query Parameters ban đầu (ví dụ: ?type=HOTEL&keyword=abc)
+    const { getToken } = useAuth();
+    const { isSignedIn } = useUser();
+
+    // Hàm bổ trợ đọc các URL Query Parameters ban đầu
     const getQueryParam = (param) => {
         return new URLSearchParams(location.search).get(param);
     };
@@ -61,6 +66,27 @@ const AllServices = () => {
         return () => clearTimeout(timer);
     }, [keyword]);
 
+    // LƯU TỪ KHÓA TÌM KIẾM DƯỚI NỀN
+    useEffect(() => {
+        const saveSearchHistory = async () => {
+            // Chỉ lưu khi user đã đăng nhập, và từ khóa dài hơn 1 ký tự (tránh lưu rác khi vừa gõ 1 chữ)
+            if (isSignedIn && debouncedKeyword.trim().length > 1) {
+                try {
+                    const token = await getToken();
+                    await axios.post('/api/users/save-search',
+                        { keyword: debouncedKeyword.trim() },
+                        { headers: { Authorization: `Bearer ${token}` } }
+                    );
+                    // Không cần console.log hay alert để tránh làm phiền trải nghiệm người dùng
+                } catch (error) {
+                    console.error("Lỗi lưu lịch sử tìm kiếm", error);
+                }
+            }
+        };
+
+        saveSearchHistory();
+    }, [debouncedKeyword, isSignedIn, getToken]);
+
     // --- 4. LOGIC GỌI API ---
     const fetchServices = async (isLoadMore = false) => {
         try {
@@ -103,13 +129,11 @@ const AllServices = () => {
         }
     };
 
-    // Reset trang về 1 và gọi API khi bộ lọc thay đổi
     useEffect(() => {
         setPage(1);
         fetchServices(false);
     }, [category, debouncedKeyword, selectedAreas, priceRange, minRating, hasDiscount, sortOption]);
 
-    // Gọi API khi bấm Load More
     useEffect(() => {
         if (page > 1) {
             fetchServices(true);
@@ -134,7 +158,6 @@ const AllServices = () => {
         { value: 'rating_desc', label: 'Đánh giá cao nhất', icon: <Star size={16} className="fill-current" /> },
     ];
 
-    // Đóng dropdown khi click ra ngoài
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (sortRef.current && !sortRef.current.contains(event.target)) {
@@ -145,7 +168,6 @@ const AllServices = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
-    // Tìm option hiện tại để hiển thị Label và Icon tương ứng
     const currentSortOption = sortOptions.find(opt => opt.value === sortOption) || sortOptions[0];
 
     return (
@@ -169,7 +191,7 @@ const AllServices = () => {
                                 ))}
                             </div>
 
-                            {/* Custom Dropdown Sắp xếp (Đã Fix Icon) */}
+                            {/* Custom Dropdown Sắp xếp */}
                             <div className="relative z-20" ref={sortRef}>
                                 <button
                                     onClick={() => setIsSortOpen(!isSortOpen)}

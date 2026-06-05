@@ -11,6 +11,7 @@ import {
 import { verifyClerkToken } from '../middlewares/auth.js';
 import { requireRole } from '../middlewares/roleCheck.js';
 import { checkServiceQuota } from '../middlewares/saasGuard.js';
+import { getAIRecommendations } from '../controllers/serviceController.js';
 
 const router = express.Router();
 
@@ -18,6 +19,7 @@ router.get('/', getServices);
 
 router.get('/my', verifyClerkToken, requireRole('OWNER'), getMyServices);
 router.get('/premium-banners', getPremiumBannerServices);
+router.get('/recommendations', verifyClerkToken, getAIRecommendations);
 
 router.post('/', verifyClerkToken, requireRole('OWNER'), checkServiceQuota, createService);
 router.put('/:id', verifyClerkToken, requireRole('OWNER'), updateService);
