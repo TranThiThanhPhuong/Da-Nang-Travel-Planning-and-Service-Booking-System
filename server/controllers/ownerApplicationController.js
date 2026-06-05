@@ -1,17 +1,16 @@
 import OwnerApplication from "../models/OwnerApplication.js";
 import User from "../models/User.js";
 import clerkClient from "../utils/clerkClient.js";
+import ApiResponse from "../utils/ApiResponse.js";
+import ApiError from "../utils/ApiError.js";
 
 // @desc    Upload documents for owner application
 // @route   POST /api/owner-applications/upload
 // @access  Private
-export const uploadDocuments = async (req, res) => {
+export const uploadDocuments = async (req, res, next) => {
   try {
     if (!req.files || req.files.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Không có file nào được tải lên",
-      });
+      throw new ApiError(400, "Không có file nào được tải lên");
     }
 
     const metadata = JSON.parse(req.body.metadata || "[]");
@@ -19,7 +18,7 @@ export const uploadDocuments = async (req, res) => {
     // Map files với metadata
     const documents = req.files.map((file, index) => {
       if (!file.mimetype.startsWith("image/")) {
-        throw new Error("Chỉ cho phép upload file ảnh");
+        throw new ApiError(400, "Chỉ cho phép upload file ảnh");
       }
       const meta = metadata[index] || {};
       return {
@@ -31,24 +30,21 @@ export const uploadDocuments = async (req, res) => {
       };
     });
 
-    res.json({
-      success: true,
-      data: documents,
-      message: `Đã tải lên ${documents.length} tài liệu`,
-    });
+    return ApiResponse.send(
+      res,
+      200,
+      `Đã tải lên ${documents.length} tài liệu`,
+      documents
+    );
   } catch (error) {
-    console.error("Upload error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 
 // @desc    Submit owner application
 // @route   POST /api/owner-applications
 // @access  Private
-export const submitApplication = async (req, res) => {
+export const submitApplication = async (req, res, next) => {
   try {
     const {
       businessName,
@@ -60,10 +56,7 @@ export const submitApplication = async (req, res) => {
     } = req.body;
 
     if (!businessName || !phoneNumber || !bankAccount?.accountNumber || !payos?.clientId || !payos?.apiKey || !payos?.checksumKey) {
-      return res.status(400).json({
-        success: false,
-        message: "Thiếu thông tin bắt buộc hoặc chưa cấu hình PayOS đầy đủ",
-      });
+      throw new ApiError(400, "Thiếu thông tin bắt buộc hoặc chưa cấu hình PayOS đầy đủ");
     }
 
     const existingApp = await OwnerApplication.findOne({
@@ -71,10 +64,7 @@ export const submitApplication = async (req, res) => {
     }).sort({ createdAt: -1 });
 
     if (existingApp && existingApp.status === "PENDING") {
-      return res.status(400).json({
-        success: false,
-        message: "Bạn đã có đơn đang chờ duyệt.",
-      });
+      throw new ApiError(400, "Bạn đã có đơn đang chờ duyệt.");
     }
 
     const application = await OwnerApplication.create({
@@ -87,66 +77,54 @@ export const submitApplication = async (req, res) => {
       documents,
     });
 
-    res.status(201).json({
-      success: true,
-      data: application,
-      message: "Đơn đăng ký đã được gửi thành công",
-    });
+    return ApiResponse.send(res, 201, "Đơn đăng ký đã được gửi thành công", application);
   } catch (error) {
-    console.error("Submit application error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 
 // @desc    Get all applications (Admin only)
 // @route   GET /api/owner-applications
 // @access  Private/Admin
-export const getAllApplications = async (req, res) => {
+export const getAllApplications = async (req, res, next) => {
   try {
     const { status } = req.query;
     const filter = status ? { status } : {};
+
     const applications = await OwnerApplication.find(filter)
-      .populate("userId", "fullName email clerkId")
-      .sort({ createdAt: -1 });
+      .populate("userId", "fullName email clerkId avatar") // Lấy thêm avatar để hiển thị 
+      .sort({ createdAt: -1 })
+      .lean();
 
     const sanitizedApplications = applications.map((app) => {
-      delete app.payos; // Xóa bỏ hoàn toàn object chứa key (nếu có rò rỉ)
+      if (app.payos) {
+        delete app.payos;
+      }
+
       return {
         ...app,
-        payosStatus: "Đã cấu hình đầy đủ thông tin cổng PayOS ✓", // Gửi text này về cho Admin hiển thị trên giao diện bảng (Table)
+        payosStatus: "Đã cấu hình đầy đủ thông tin cổng PayOS ✓",
       };
     });
 
-    res.json({
-      success: true,
-      count: sanitizedApplications.length,
-      data: sanitizedApplications,
+    return ApiResponse.send(res, 200, "Lấy danh sách hồ sơ thành công", sanitizedApplications, {
+      count: sanitizedApplications.length
     });
   } catch (error) {
-    console.error("Get applications error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 
 // @desc    Review application (Admin only)
 // @route   PATCH /api/owner-applications/:id
 // @access  Private/Admin
-export const reviewApplication = async (req, res) => {
+export const reviewApplication = async (req, res, next) => {
   try {
     const { status, adminNotes } = req.body;
     const { id } = req.params;
 
     if (!["APPROVED", "REJECTED"].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: "Trạng thái không hợp lệ",
-      });
+      throw new ApiError(400, "Trạng thái không hợp lệ");
     }
 
     const application = await OwnerApplication.findByIdAndUpdate(
@@ -156,10 +134,7 @@ export const reviewApplication = async (req, res) => {
     ).populate("userId", "fullName email clerkId").lean();
 
     if (!application) {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy đơn",
-      });
+      throw new ApiError(404, "Không tìm thấy đơn");
     }
 
     // Nếu APPROVED -> Nâng cấp User
@@ -183,103 +158,78 @@ export const reviewApplication = async (req, res) => {
     delete application.payos;
     application.payosStatus = "Đã cấu hình đầy đủ thông tin cổng PayOS ✓";
 
-    res.json({
-      success: true,
-      message: `Đã ${status === "APPROVED" ? "duyệt" : "từ chối"} đơn đăng ký`,
-      data: application,
-    });
+    return ApiResponse.send(
+      res,
+      200,
+      `Đã ${status === "APPROVED" ? "duyệt" : "từ chối"} đơn đăng ký`,
+      application
+    );
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
 // @desc    Get my application status
 // @route   GET /api/owner-applications/my-status
 // @access  Private
-export const getMyApplicationStatus = async (req, res) => {
+export const getMyApplicationStatus = async (req, res, next) => {
   try {
     const application = await OwnerApplication.findOne({
       userId: req.user._id,
     })
-    .select("+payos.clientId +payos.apiKey +payos.checksumKey")
-    .sort({ createdAt: -1 });
+      .select("+payos.clientId +payos.apiKey +payos.checksumKey")
+      .sort({ createdAt: -1 });
 
-    res.json({
-      success: true,
-      data: application,
-    });
+    return ApiResponse.send(res, 200, "Lấy thông tin trạng thái hồ sơ thành công", application);
   } catch (error) {
-    console.error("Get my status error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 
 // @desc    Delete/Cancel application
 // @route   DELETE /api/owner-applications/:id
 // @access  Private
-export const cancelApplication = async (req, res) => {
+export const cancelApplication = async (req, res, next) => {
   try {
     const { id } = req.params;
 
     const application = await OwnerApplication.findById(id);
 
     if (!application) {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy đơn đăng ký",
-      });
+      throw new ApiError(404, "Không tìm thấy đơn đăng ký");
     }
 
     // Chỉ cho phép user tự hủy đơn của mình
     if (application.userId.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: "Bạn không có quyền hủy đơn này",
-      });
+      throw new ApiError(403, "Bạn không có quyền hủy đơn này");
     }
 
     // Chỉ cho phép hủy đơn PENDING
     if (application.status !== "PENDING") {
-      return res.status(400).json({
-        success: false,
-        message: "Chỉ có thể hủy đơn đang chờ duyệt",
-      });
+      throw new ApiError(400, "Chỉ có thể hủy đơn đang chờ duyệt");
     }
 
     await application.deleteOne();
 
-    res.json({
-      success: true,
-      message: "Đã hủy đơn đăng ký thành công",
-    });
+    return ApiResponse.send(res, 200, "Đã hủy đơn đăng ký thành công");
   } catch (error) {
-    console.error("Cancel application error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    next(error);
   }
 };
 
 // @desc    Lấy thông tin tài khoản ngân hàng và cổng PayOS hiện tại của Owner
 // @route   GET /api/owner-applications/payment-config
 // @access  Private (Chỉ đối tác)
-export const getPaymentConfig = async (req, res) => {
+export const getPaymentConfig = async (req, res, next) => {
   try {
     // Ép lấy các trường select: false bằng dấu cộng (+) phục vụ mục đích hiển thị cấu hình cho chính chủ sở hữu
-    const application = await OwnerApplication.findOne({ 
+    const application = await OwnerApplication.findOne({
       userId: req.user._id,
-      status: 'APPROVED' 
+      status: 'APPROVED'
     }).select('+payos.clientId +payos.apiKey +payos.checksumKey').sort({ createdAt: -1 });
 
     if (!application) {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy hồ sơ đối tác được phê duyệt của tài khoản này.",
-      });
+      throw new ApiError(404, "Không tìm thấy hồ sơ đối tác được phê duyệt của tài khoản này.");
     }
 
     // Che bớt thông tin key (Masking dữ liệu nhạy cảm gửi về client)
@@ -289,53 +239,45 @@ export const getPaymentConfig = async (req, res) => {
       return `${str.substring(0, 4)}...${str.substring(str.length - 4)}`;
     };
 
-    res.status(200).json({
-      success: true,
-      data: {
-        bankAccount: application.bankAccount,
-        payos: {
-          clientId: maskKey(application.payos?.clientId),
-          apiKey: maskKey(application.payos?.apiKey),
-          checksumKey: maskKey(application.payos?.checksumKey),
-          // Gửi cờ kiểm tra xem DB đã có dữ liệu hay chưa để phục vụ UI placeholder/validation
-          hasClientId: !!application.payos?.clientId,
-          hasApiKey: !!application.payos?.apiKey,
-          hasChecksumKey: !!application.payos?.checksumKey,
-        }
+    const configData = {
+      bankAccount: application.bankAccount,
+      payos: {
+        clientId: maskKey(application.payos?.clientId),
+        apiKey: maskKey(application.payos?.apiKey),
+        checksumKey: maskKey(application.payos?.checksumKey),
+        // Gửi cờ kiểm tra xem DB đã có dữ liệu hay chưa để phục vụ UI placeholder/validation
+        hasClientId: !!application.payos?.clientId,
+        hasApiKey: !!application.payos?.apiKey,
+        hasChecksumKey: !!application.payos?.checksumKey,
       }
-    });
+    };
+
+    return ApiResponse.send(res, 200, "Lấy thông tin cấu hình thanh toán thành công", configData);
   } catch (error) {
-    console.error("Get payment config error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };
 
 // @desc    Cập nhật thông tin cấu hình thanh toán PayOS và Ngân hàng
 // @route   PUT /api/owner-applications/payment-config
 // @access  Private (Chỉ đối tác)
-export const updatePaymentConfig = async (req, res) => {
+export const updatePaymentConfig = async (req, res, next) => {
   try {
     const { bankAccount, payos } = req.body;
 
     // Validate nhanh dữ liệu đầu vào ngân hàng
     if (!bankAccount?.bankName || !bankAccount?.accountNumber || !bankAccount?.accountHolderName) {
-      return res.status(400).json({
-        success: false,
-        message: "Vui lòng nhập đầy đủ thông tin tài khoản ngân hàng thụ hưởng.",
-      });
+      throw new ApiError(400, "Vui lòng nhập đầy đủ thông tin tài khoản ngân hàng thụ hưởng.");
     }
 
     // Tìm đơn đăng ký gần nhất đã được duyệt của Owner này
-    const application = await OwnerApplication.findOne({ 
+    const application = await OwnerApplication.findOne({
       userId: req.user._id,
-      status: 'APPROVED' 
+      status: 'APPROVED'
     }).select('+payos.clientId +payos.apiKey +payos.checksumKey').sort({ createdAt: -1 });
 
     if (!application) {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy hồ sơ đối tác hợp lệ để cập nhật cấu hình.",
-      });
+      throw new ApiError(404, "Không tìm thấy hồ sơ đối tác hợp lệ để cập nhật cấu hình.");
     }
 
     // Cập nhật thông tin ngân hàng
@@ -358,12 +300,8 @@ export const updatePaymentConfig = async (req, res) => {
 
     await application.save();
 
-    res.status(200).json({
-      success: true,
-      message: "Cấu hình dòng tiền và cổng thanh toán đối tác cập nhật thành công.",
-    });
+    return ApiResponse.send(res, 200, "Cấu hình dòng tiền và cổng thanh toán đối tác cập nhật thành công.");
   } catch (error) {
-    console.error("Update payment config error:", error);
-    res.status(500).json({ success: false, message: error.message });
+    next(error);
   }
 };

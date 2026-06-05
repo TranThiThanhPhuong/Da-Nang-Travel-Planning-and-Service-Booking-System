@@ -57,8 +57,8 @@ const Owners = () => {
   const handleApprove = async () => {
     try {
       const token = await getToken();
-      await axios.patch(`/api/owner-applications/${selected._id}`, 
-        { status: "APPROVED" }, 
+      await axios.patch(`/api/owner-applications/${selected._id}`,
+        { status: "APPROVED" },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       alert("Đã phê duyệt đối tác thành công!");
@@ -76,8 +76,8 @@ const Owners = () => {
     if (!reason) return alert("Vui lòng nhập lý do từ chối");
     try {
       const token = await getToken();
-      await axios.patch(`/api/owner-applications/${selected._id}`, 
-        { status: "REJECTED", adminNotes: reason }, 
+      await axios.patch(`/api/owner-applications/${selected._id}`,
+        { status: "REJECTED", adminNotes: reason },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       alert(" Đã từ chối hồ sơ.");
@@ -92,13 +92,18 @@ const Owners = () => {
 
   // FILTER
   const filtered = useMemo(() => {
-    const keyword = search.toLowerCase();
+    if (!search.trim() && statusFilter === "ALL") return applications;
+
+    const keyword = search.toLowerCase().trim();
 
     return applications.filter((app) => {
       const matchSearch =
         app.businessName?.toLowerCase().includes(keyword) ||
         app.businessAddress?.toLowerCase().includes(keyword) ||
-        app.phoneNumber?.includes(keyword);
+        app.phoneNumber?.includes(keyword) ||
+        app.userId?.fullName?.toLowerCase().includes(keyword) ||
+        app.userId?.email?.toLowerCase().includes(keyword);
+
       const matchStatus = statusFilter === "ALL" || app.status === statusFilter;
 
       return matchSearch && matchStatus;
