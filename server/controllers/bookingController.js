@@ -7,6 +7,7 @@ import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import { redlock } from '../config/redis.js';
 import mongoose from 'mongoose';
+import { sendNotification } from '../utils/notificationHelper.js';
 
 const generateBookingCode = () => {
     return `DP-${Date.now()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
@@ -386,6 +387,16 @@ export const cancelBooking = async (req, res, next) => {
       booking.version += 1;
       await booking.save();
 
+      await sendNotification({
+        recipientId: booking.ownerId,
+        recipientRole: 'OWNER',
+        title: '⚠️ Yêu cầu hủy đơn & hoàn tiền mới',
+        content: `Khách hàng yêu cầu hủy đơn #${booking.bookingCode}. Số tiền dự kiến cần hoàn trả: ${refundAmount.toLocaleString('vi-VN')} VND.`,
+        category: 'FINANCIAL',
+        onClickUrl: '/owner/bookings',
+        metadata: { bookingId: booking._id }
+      });
+
       return res.status(200).json({
         success: true,
         message: `Gửi yêu cầu thành công. Số tiền dự kiến hoàn: ${refundAmount.toLocaleString('vi-VN')} VND. Vui lòng đợi Chủ dịch vụ xác nhận chuyển khoản để hoàn tất hoàn chỗ.`,
@@ -455,6 +466,16 @@ export const confirmOwnerRefund = async (req, res, next) => {
 
     await session.commitTransaction();
     session.endSession();
+
+    await sendNotification({
+      recipientId: booking.userId,
+      recipientRole: 'USER',
+      title: '💸 Đơn hàng đã được hoàn tiền thành công',
+      content: `Yêu cầu hủy đơn #${booking.bookingCode} đã hoàn tất. Số tiền hoàn trả đã được chuyển về tài khoản của bạn.`,
+      category: 'FINANCIAL',
+      onClickUrl: '/account?tab=bookings',
+      metadata: { bookingId: booking._id }
+    });
 
     return res.status(200).json({
       success: true,

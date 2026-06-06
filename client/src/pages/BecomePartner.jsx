@@ -40,6 +40,13 @@ const BecomePartner = ({ dbUser }) => {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+    onConfirm: null,
+  });
 
   const isPending = status?.status === "PENDING";
   const isRejected = status?.status === "REJECTED";

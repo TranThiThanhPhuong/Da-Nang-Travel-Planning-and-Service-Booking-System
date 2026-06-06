@@ -4,6 +4,7 @@ import OwnerApplication from '../models/OwnerApplication.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import { PayOS } from '@payos/node';
+import { sendNotification } from '../utils/notificationHelper.js';
 
 // Hàm helper tính toán mảng ngày để hoàn kho
 const getDatesInRange = (startDate, endDate) => {
@@ -133,6 +134,30 @@ export const verifyPayment = async (req, res, next) => {
             booking.status = 'PAID';
             booking.paymentDetails.paidAt = new Date();
             await booking.save();
+
+            const serviceDoc = await Service.findById(booking.serviceId).select('name').lean();
+
+            // 🔔 Thông báo cho USER (Khách hàng)
+            await sendNotification({
+                recipientId: booking.userId,
+                recipientRole: 'USER',
+                title: 'Đặt chỗ thành công! 🎉',
+                content: `Đơn đặt chỗ #${booking.bookingCode} đã thanh toán thành công. Dịch vụ sẵn sàng phục vụ!`,
+                category: 'BOOKING_STATUS',
+                onClickUrl: '/account?tab=bookings', // Link tổng theo yêu cầu của bạn
+                metadata: { bookingId: booking._id }
+            });
+
+            // 🔔 Thông báo cho OWNER (Chủ dịch vụ)
+            await sendNotification({
+                recipientId: booking.ownerId,
+                recipientRole: 'OWNER',
+                title: '🔔 Hệ thống ghi nhận đơn đặt mới',
+                content: `Đơn hàng #${booking.bookingCode} của dịch vụ "${serviceDoc?.name || ''}" đã thanh toán thành công.`,
+                category: 'BOOKING_STATUS',
+                onClickUrl: '/owner/bookings', // Link tổng quản lý
+                metadata: { bookingId: booking._id }
+            });
 
             return ApiResponse.send(res, 200, 'Xác thực thanh toán thành công!', { status: 'PAID' });
         } else {

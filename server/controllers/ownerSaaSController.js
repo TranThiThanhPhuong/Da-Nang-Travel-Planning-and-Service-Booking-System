@@ -5,6 +5,7 @@ import Service from '../models/Service.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import payOS from '../config/payos.js';
+import { sendNotification } from '../utils/notificationHelper.js';
 
 const generateTransactionCode = () => `SAAS-${Date.now()}-${Math.random().toString(36).substring(2, 5).toUpperCase()}`;
 
@@ -144,6 +145,14 @@ export const verifySubscriptionPayment = async (req, res, next) => {
                         }
                     }
                 }
+                await sendNotification({
+                    recipientId: ownerId,
+                    recipientRole: 'OWNER',
+                    title: '💎 Kích hoạt gói dịch vụ thành công!',
+                    content: `Cảm ơn bạn đã gia hạn gói [${transaction.packageCode}]. Hệ thống đã tự động mở khóa các dịch vụ liên quan. Hạn dùng mới: ${newEndDate.toLocaleDateString('vi-VN')}.`,
+                    category: 'ACCOUNT_SAAS',
+                    onClickUrl: '/owner/subscription'
+                });
             }
             // Trả về kết quả Thành công
             return ApiResponse.send(res, 200, 'Xác thực thanh toán thành công.', { status: 'PAID' });

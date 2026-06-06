@@ -1,6 +1,7 @@
 import OwnerApplication from "../models/OwnerApplication.js";
 import User from "../models/User.js";
 import clerkClient from "../utils/clerkClient.js";
+import { sendNotification } from '../utils/notificationHelper.js';
 import ApiResponse from "../utils/ApiResponse.js";
 import ApiError from "../utils/ApiError.js";
 
@@ -75,6 +76,19 @@ export const submitApplication = async (req, res, next) => {
       bankAccount,
       payos,
       documents,
+    });
+
+    const admins = await User.find({ role: 'ADMIN' }).select('_id').lean();
+    const adminIds = admins.map(admin => admin._id);
+
+    await sendNotification({
+      recipientId: adminIds,
+      recipientRole: 'ADMIN',
+      title: '📑 Có chủ dịch vụ mới chờ phê duyệt',
+      content: `Đối tác vừa tạo chủ dịch vụ mới: "${businessName}". Vui lòng kiểm tra và phê duyệt.`,
+      category: 'SYSTEM_ALERT',
+      onClickUrl: '/admin/owners',
+      metadata: { applicationId: application._id }
     });
 
     return ApiResponse.send(res, 201, "Đơn đăng ký đã được gửi thành công", application);

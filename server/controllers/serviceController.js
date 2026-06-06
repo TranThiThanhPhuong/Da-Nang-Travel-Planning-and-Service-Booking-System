@@ -3,6 +3,7 @@ import User from '../models/User.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import ApiError from '../utils/ApiError.js';
 import { removeVietnameseTones } from '../utils/stringUtils.js';
+import { sendNotification } from '../utils/notificationHelper.js';
 import axios from 'axios';
 
 // @desc    Lấy danh sách dịch vụ (Có Lọc, Tìm kiếm, Phân trang, Sắp xếp, Ưu tiên gói VIP)
@@ -141,6 +142,19 @@ export const createService = async (req, res) => {
       images: images || [],
       features: features || [],
       approvalStatus: 'PENDING',
+    });
+
+    const admins = await User.find({ role: 'ADMIN' }).select('_id').lean();
+    const adminIds = admins.map(admin => admin._id);
+
+    await sendNotification({
+      recipientId: adminIds,
+      recipientRole: 'ADMIN',
+      title: '📑 Có dịch vụ mới chờ phê duyệt',
+      content: `Đối tác vừa tạo dịch vụ mới: "${name}". Vui lòng kiểm tra và phê duyệt.`,
+      category: 'SYSTEM_ALERT',
+      onClickUrl: '/admin/services',
+      metadata: { serviceId: service._id }
     });
 
     res.status(201).json({
