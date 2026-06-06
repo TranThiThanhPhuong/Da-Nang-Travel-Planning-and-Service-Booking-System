@@ -19,6 +19,7 @@ import paymentRoutes from './routes/paymentRoutes.js';
 import wishlistRoutes from './routes/wishlistRoutes.js';
 import reviewRoutes from './routes/reviewRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
+import userRoutes from './routes/userRoutes.js';
 import initCronJobs from './utils/cronJobs.js';
 import errorHandler from './middlewares/errorHandler.js';
 import ApiError from './utils/ApiError.js';
@@ -128,6 +129,8 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/wishlists', wishlistRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/users', userRoutes);
+
 // Health Check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running' });
