@@ -1,6 +1,7 @@
 import OwnerApplication from "../models/OwnerApplication.js";
 import User from "../models/User.js";
 import clerkClient from "../utils/clerkClient.js";
+import { sendNotification } from '../utils/notificationHelper.js';
 
 // @desc    Upload documents for owner application
 // @route   POST /api/owner-applications/upload
@@ -87,6 +88,19 @@ export const submitApplication = async (req, res) => {
       documents,
     });
 
+    const admins = await User.find({ role: 'ADMIN' }).select('_id').lean();
+    const adminIds = admins.map(admin => admin._id);
+
+    await sendNotification({
+      recipientId: adminIds,
+      recipientRole: 'ADMIN',
+      title: '📑 Có chủ dịch vụ mới chờ phê duyệt',
+      content: `Đối tác vừa tạo chủ dịch vụ mới: "${businessName}". Vui lòng kiểm tra và phê duyệt.`,
+      category: 'SYSTEM_ALERT',
+      onClickUrl: '/admin/owners',
+      metadata: { applicationId: application._id }
+    });
+
     res.status(201).json({
       success: true,
       data: application,
@@ -110,7 +124,8 @@ export const getAllApplications = async (req, res) => {
     const filter = status ? { status } : {};
     const applications = await OwnerApplication.find(filter)
       .populate("userId", "fullName email clerkId")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     const sanitizedApplications = applications.map((app) => {
       delete app.payos; // Xóa bỏ hoàn toàn object chứa key (nếu có rò rỉ)

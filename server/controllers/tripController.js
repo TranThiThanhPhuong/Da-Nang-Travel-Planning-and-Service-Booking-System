@@ -1,5 +1,6 @@
 import Trip from "../models/Trip.js";
 import Booking from "../models/Booking.js";
+import User from "../models/User.js";
 import { callAItoSchedule } from "../services/apiTripService.js";
 import { filterServicesForTrip } from "../services/serviceFilterService.js";
 import { generateDashboardInsights } from '../services/allnsight.js'

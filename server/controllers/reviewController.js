@@ -1,6 +1,7 @@
 import Review from "../models/Review.js";
 import Booking from "../models/Booking.js";
 import mongoose from "mongoose";
+import { sendNotification } from '../utils/notificationHelper.js';
 
 // @desc    Tạo đánh giá mới cho dịch vụ
 // @route   POST /api/reviews
@@ -72,6 +73,18 @@ export const createReview = async (req, res, next) => {
       comment,
       isAnonymous: isAnonymous || false,
       images: images || [],
+    });
+
+    const reviewerName = isAnonymous ? "Một khách hàng ẩn danh" : (req.user.fullName || "Khách hàng");
+    
+    await sendNotification({
+      recipientId: booking.ownerId, // Gửi tới chủ dịch vụ
+      recipientRole: 'OWNER',
+      title: `⭐ Đánh giá mới từ ${reviewerName}`,
+      content: `Đơn hàng #${booking.bookingCode} vừa nhận được đánh giá ${rating} sao: "${comment.substring(0, 40)}${comment.length > 40 ? '...' : ''}"`,
+      category: 'BOOKING_STATUS',
+      onClickUrl: `/services/${booking.serviceId}`,
+      metadata: { reviewId: newReview._id, serviceId: booking.serviceId }
     });
 
     return res.status(201).json({

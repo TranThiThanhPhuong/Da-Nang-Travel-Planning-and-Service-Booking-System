@@ -62,7 +62,7 @@ const Bookings = () => {
 
       const [bookingsRes, servicesRes] = await Promise.all([
         axios.get("/api/bookings/service-bookings", config),
-        axios.get("/api/services/my", config),
+        axios.get("/api/inventory/my-services", config),
       ]);
 
       if (bookingsRes.data?.success) {
@@ -394,7 +394,7 @@ const Bookings = () => {
             Bao gồm các đơn đã hoàn thành và đơn hủy đã được hoàn tiền
           </p>
           <p className="text-base font-black text-[#FFAB40] mt-2 truncate">
-            {formatCurrency(dynamicStats.REVENUE)} đ
+            {formatCurrency(dynamicStats.REVENUE)} 
           </p>
         </div>
       </div>
