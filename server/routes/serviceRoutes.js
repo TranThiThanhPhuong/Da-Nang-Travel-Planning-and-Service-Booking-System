@@ -12,7 +12,7 @@ import {
     getAIRecommendations
 } from '../controllers/serviceController.js';
 import { verifyClerkToken } from '../middlewares/auth.js';
-import { requireRole, checkRole } from '../middlewares/roleCheck.js';
+import { requireRole } from '../middlewares/roleCheck.js';
 import { checkServiceQuota } from '../middlewares/saasGuard.js';
 
 const router = express.Router();
@@ -22,8 +22,8 @@ router.get('/', getServices);
 router.get('/premium-banners', getPremiumBannerServices);
 
 // Route dành cho Admin (Đặt TRƯỚC route có tham số /:id để tránh trùng khớp)
-router.get('/admin/all', verifyClerkToken, checkRole(['ADMIN']), getAllServicesForAdmin);
-router.patch('/admin/:id/review', verifyClerkToken, checkRole(['ADMIN']), reviewService);
+router.get('/admin/all', verifyClerkToken, requireRole('ADMIN'), getAllServicesForAdmin);
+router.patch('/admin/:id/review', verifyClerkToken, requireRole('ADMIN'), reviewService);
 
 // Route dành cho User / Owner
 router.get('/my', verifyClerkToken, requireRole('OWNER'), getMyServices);
@@ -33,7 +33,7 @@ router.post('/', verifyClerkToken, requireRole('OWNER'), checkServiceQuota, crea
 router.put('/:id', verifyClerkToken, requireRole('OWNER'), updateService);
 router.delete('/:id', verifyClerkToken, requireRole('OWNER'), deleteService);
 
-// Route động có tham số 
+// Route động có tham số (Luôn đặt ở cuối cùng)
 router.get('/:id', getServiceById);
 
 export default router;
