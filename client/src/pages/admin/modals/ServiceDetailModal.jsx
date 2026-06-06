@@ -47,16 +47,17 @@ const ServiceDetailModal = ({
     return new Intl.NumberFormat("vi-VN").format(price) + "đ";
   };
 
-  // Trích xuất dữ liệu an toàn (Safe Extraction)
+  // Trích xuất dữ liệu đối tác an toàn
   const ownerName = application.ownerId?.fullName || "Chưa rõ";
   const ownerEmail = application.ownerId?.email || "Chưa cập nhật";
   const avatarLetter = ownerName.charAt(0).toUpperCase() || "U";
 
-  // Tọa độ GeoJSON: [Longitude, Latitude]
-  const lng = application.location?.coordinates?.[0] || 0;
-  const lat = application.location?.coordinates?.[1] || 0;
+  // Tách tọa độ địa lý chính xác từ mảng GeoJSON [Longitude, Latitude]
+  // Thiết lập fallback về trung tâm Đà Nẵng nếu dữ liệu bị trống hoặc lỗi
+  const lng = application.location?.coordinates?.[0] || 108.206230;
+  const lat = application.location?.coordinates?.[1] || 16.047079;
 
-  // Xử lý hình ảnh (Nếu không có images thì lấy thumbnail)
+  // Xử lý hiển thị album ảnh linh hoạt
   const displayImages = application.images?.length > 0 ? application.images : (application.thumbnail ? [application.thumbnail] : []);
 
   return (
@@ -120,7 +121,7 @@ const ServiceDetailModal = ({
               </div>
             </div>
 
-            {/* Vị trí & Bản đồ */}
+            {/* Vị trí & Bản đồ tương tác */}
             <div className="bg-white/80 backdrop-blur-[10px] p-6 rounded-tr-[40px] rounded-bl-[40px] rounded-tl-2xl rounded-br-2xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60">
               <h3 className="text-xl font-cormorant font-bold text-[#004D40] border-b border-[#004D40]/10 pb-3 mb-5">
                 Vị trí trên bản đồ
@@ -135,11 +136,20 @@ const ServiceDetailModal = ({
                   </div>
                 </div>
 
-                {/* MOCKUP BẢN ĐỒ */}
-                <div className="w-full h-64 bg-[#E0F2F1]/30 border-2 border-[#004D40]/20 border-dashed rounded-tr-[24px] rounded-bl-[24px] rounded-tl-xl rounded-br-xl flex flex-col items-center justify-center">
-                  <MapIcon size={40} className="text-[#004D40]/30 mb-2" />
-                  <p className="text-sm text-[#004D40] font-bold">Khu vực hiển thị Bản đồ</p>
-                  <p className="text-xs text-[#004D40]/60 font-medium mt-1">Lat: {lat} | Lng: {lng}</p>
+                {/* BẢN ĐỒ CHI TIẾT OPENSTREETMAP REAL-TIME */}
+                {/* bbox được tinh chỉnh thông số 0.005 để tạo độ zoom cận cảnh điểm đánh dấu pin tốt nhất trong khung nhỏ */}
+                <div className="w-full h-64 rounded-tr-[24px] rounded-bl-[24px] rounded-tl-xl rounded-br-xl overflow-hidden border-2 border-[#E0F2F1] shadow-inner bg-gray-50">
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    frameBorder="0"
+                    scrolling="no"
+                    marginHeight="0"
+                    marginWidth="0"
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.005}%2C${lat - 0.005}%2C${lng + 0.005}%2C${lat + 0.005}&layer=mapnik&marker=${lat}%2C${lng}`}
+                    style={{ border: 0 }}
+                    title="Bản đồ xác thực vị trí dịch vụ"
+                  ></iframe>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -253,7 +263,7 @@ const ServiceDetailModal = ({
                 </p>
               </div>
 
-              {/* Nếu bị từ chối thì hiển thị lý do */}
+              {/* Hiển thị lý do cụ thể nếu đơn bị từ chối trước đó */}
               {application.approvalStatus === "REJECTED" && application.adminNotes && (
                 <div className="mt-4 p-3 bg-red-50 rounded-xl border border-red-100">
                   <p className="text-xs font-bold text-red-600 mb-1">Lý do từ chối:</p>
