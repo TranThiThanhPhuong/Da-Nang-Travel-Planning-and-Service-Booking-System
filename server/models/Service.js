@@ -68,6 +68,9 @@ const serviceSchema = new mongoose.Schema(
             enum: ['PENDING', 'APPROVED', 'REJECTED', 'HIDDEN'],
             default: 'PENDING',
         },
+        adminNotes: {
+            type: String,
+        },
         ratingStats: {
             averageRating: { type: Number, default: 0, min: 0, max: 5 },
             totalReviews: { type: Number, default: 0 },
@@ -102,7 +105,7 @@ serviceSchema.pre('findOneAndUpdate', function (next) {
         // Để an toàn và triệt để nhất, logic controller nên gửi kèm cả 2 hoặc ta xử lý fallback:
         const price = currentSet.pricePerUnit !== undefined ? currentSet.pricePerUnit : 0;
         const discount = currentSet.discount !== undefined ? currentSet.discount : 0;
-        
+
         currentSet.finalPrice = price * (1 - discount / 100);
     }
 
