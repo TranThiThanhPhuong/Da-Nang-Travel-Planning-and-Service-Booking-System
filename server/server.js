@@ -46,13 +46,12 @@ const io = new Server(httpServer, {
 global.io = io;
 
 // MIDDLEWARE BẢO MẬT: Xác thực Token trước khi cho phép kết nối Socket
-// MIDDLEWARE BẢO MẬT: Xác thực Token trước khi cho phép kết nối Socket
 io.use(async (socket, next) => {
     try {
         // Lấy token từ nhiều nguồn để tránh sót (auth object hoặc headers)
-        const token = socket.handshake.auth?.token || 
-                      socket.handshake.headers?.authorization?.split(' ')[1];
-        
+        const token = socket.handshake.auth?.token ||
+            socket.handshake.headers?.authorization?.split(' ')[1];
+
         if (!token) {
             return next(new Error('Authentication error: Token missing'));
         }
@@ -69,9 +68,9 @@ io.use(async (socket, next) => {
 
         // Đính kèm thông tin User ID (Trong JWT của Clerk, trường 'sub' chính là User ID gốc: user_...)
         socket.user = {
-            _id: decodedToken.sub, 
+            _id: decodedToken.sub,
         };
-        
+
         console.log(`✅ [Socket Auth Success]: Thiết bị kết nối hợp lệ. User: ${socket.user._id}`);
         next();
     } catch (err) {
@@ -82,7 +81,7 @@ io.use(async (socket, next) => {
 
 io.on('connection', (socket) => {
     console.log(`🔌 Thiết bị kết nối Socket thành công: ${socket.id} (User: ${socket.user._id})`);
-    
+
     socket.on('join-channels', (data) => {
         if (data?.userId) {
             // 1. Tham gia phòng cá nhân như bình thường (Dành cho thông báo riêng tư)
@@ -105,8 +104,8 @@ io.on('connection', (socket) => {
 
 // Middleware
 app.use(cors({
-  origin: FRONTEND_URL,
-  credentials: true
+    origin: FRONTEND_URL,
+    credentials: true
 }));
 app.use(express.json());
 
@@ -133,12 +132,12 @@ app.use('/api/users', userRoutes);
 
 // Health Check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'OK', message: 'Server is running' });
+    res.json({ status: 'OK', message: 'Server is running' });
 });
 
 // Bắt lỗi 404 Not Found
 app.all('*', (req, res, next) => {
-  next(new ApiError(404, `Không tìm thấy đường dẫn ${req.originalUrl} trên máy chủ!`));
+    next(new ApiError(404, `Không tìm thấy đường dẫn ${req.originalUrl} trên máy chủ!`));
 });
 
 // Trạm Xử Lý Lỗi Toàn Cục
@@ -147,5 +146,5 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 
 httpServer.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+    console.log(`🚀 Server running on port ${PORT}`);
 });

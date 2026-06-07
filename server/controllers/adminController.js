@@ -1,8 +1,6 @@
 import User from '../models/User.js';
 import Service from '../models/Service.js';
 import OwnerApplication from '../models/OwnerApplication.js';
-import SubscriptionTransaction from '../models/SubscriptionTransaction.js';
-import Booking from '../models/Booking.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import ApiError from '../utils/ApiError.js';
 import clerkClient from '../utils/clerkClient.js';
@@ -147,130 +145,6 @@ export const getUserDetails = async (req, res, next) => {
         const responseData = { ...user, ...extraData };
 
         return ApiResponse.send(res, 200, 'Lấy chi tiết thành công', responseData);
-    } catch (error) {
-        next(error);
-    }
-};
-
-// 4. API GET /api/admin/dashboard-stats
-export const getDashboardStats = async (req, res, next) => {
-    try {
-        // 1. CHUẨN BỊ MỐC THỜI GIAN
-        const now = new Date();
-        const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-
-        // Mốc 6 tháng trước cho Biểu đồ Area Chart
-        const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-
-        // 2. THỰC THI TRUY VẤN SONG SONG (PROMISE.ALL) ĐỂ TỐI ƯU TỐC ĐỘ
-        const [
-            totalUsers,
-            totalOwners,
-            pendingApplications,
-            saasRevenueTotal,
-            saasRevenueThisMonth,
-            gmvTotal,
-            serviceDistribution,
-            monthlyRevenueData,
-            recentTransactions
-        ] = await Promise.all([
-            // Đếm User
-            User.countDocuments({ role: 'USER' }),
-
-            // Đếm Owner
-            User.countDocuments({ role: 'OWNER' }),
-
-            // Đếm đơn chờ duyệt
-            OwnerApplication.countDocuments({ status: 'PENDING' }),
-
-            // Tổng doanh thu SaaS (Tiền Admin thực lãnh)
-            SubscriptionTransaction.aggregate([
-                { $match: { status: 'PAID' } },
-                { $group: { _id: null, total: { $sum: '$amount' } } }
-            ]),
-
-            // Doanh thu SaaS tháng này (Để so sánh / hiển thị riêng)
-            SubscriptionTransaction.aggregate([
-                { $match: { status: 'PAID', paidAt: { $gte: currentMonthStart } } },
-                { $group: { _id: null, total: { $sum: '$amount' } } }
-            ]),
-
-            // Tổng GMV (Dòng tiền Booking chạy qua sàn)
-            Booking.aggregate([
-                { $match: { status: { $in: ['PAID', 'COMPLETED'] } } },
-                { $group: { _id: null, total: { $sum: '$bookingDetails.totalPrice' } } }
-            ]),
-
-            // Phân bổ dịch vụ (Cho Pie Chart)
-            Service.aggregate([
-                { $match: { approvalStatus: { $in: ['APPROVED', 'HIDDEN'] } } },
-                { $group: { _id: '$type', count: { $sum: 1 } } }
-            ]),
-
-            // Doanh thu SaaS 6 tháng gần nhất (Cho Area Chart)
-            SubscriptionTransaction.aggregate([
-                {
-                    $match: {
-                        status: 'PAID',
-                        paidAt: { $gte: sixMonthsAgo }
-                    }
-                },
-                {
-                    $group: {
-                        _id: { month: { $month: '$paidAt' }, year: { $year: '$paidAt' } },
-                        revenue: { $sum: '$amount' }
-                    }
-                },
-                { $sort: { '_id.year': 1, '_id.month': 1 } }
-            ]),
-
-            // Danh sách 10 giao dịch SaaS gần nhất (Cho Data Table)
-            SubscriptionTransaction.find()
-                .populate('ownerId', 'fullName email')
-                .sort({ createdAt: -1 })
-                .limit(10)
-                .lean()
-        ]);
-
-        // 3. FORMAT LẠI DỮ LIỆU ĐỂ FRONTEND DỄ DÀNG SỬ DỤNG
-
-        // Xử lý dữ liệu mảng bị khuyết tháng (Ví dụ tháng 2 không có doanh thu thì mảng trả về sẽ mất tháng 2)
-        // Ta phải fill các tháng có doanh thu 0 vào để biểu đồ không bị gãy
-        const formattedChartData = [];
-        for (let i = 5; i >= 0; i--) {
-            const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const m = d.getMonth() + 1;
-            const y = d.getFullYear();
-
-            const record = monthlyRevenueData.find(r => r._id.month === m && r._id.year === y);
-            formattedChartData.push({
-                month: `Tháng ${m}`,
-                amount: record ? record.revenue : 0
-            });
-        }
-
-        // Đóng gói Payload gửi về
-        const dashboardData = {
-            overview: {
-                totalUsers,
-                totalOwners,
-                pendingApplications,
-                totalSaaSRevenue: saasRevenueTotal[0]?.total || 0,
-                thisMonthSaaSRevenue: saasRevenueThisMonth[0]?.total || 0,
-                totalGMV: gmvTotal[0]?.total || 0,
-            },
-            charts: {
-                revenueTimeline: formattedChartData,
-                serviceDistribution: serviceDistribution.map(item => ({
-                    type: item._id,
-                    count: item.count
-                }))
-            },
-            recentTransactions
-        };
-
-        return ApiResponse.send(res, 200, 'Lấy dữ liệu Dashboard thành công', dashboardData);
-
     } catch (error) {
         next(error);
     }
