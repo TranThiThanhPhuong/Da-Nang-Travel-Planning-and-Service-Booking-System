@@ -13,7 +13,11 @@ const Home = ({ dbUser }) => {
     const [showLoginPrompt, setShowLoginPrompt] = useState(false);
 
     const [searchType, setSearchType] = useState('ALL')
-    const [searchKeyword, setSearchKeyword] = useState('')
+
+    // STATE LỊCH TRÌNH
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+
     const [isTypeOpen, setIsTypeOpen] = useState(false);
     const typeRef = useRef(null);
 
@@ -34,25 +38,33 @@ const Home = ({ dbUser }) => {
         }
     };
 
-    // HÀM TÌM KIẾM CẬP NHẬT: LƯU TỪ KHÓA TRƯỚC KHI CHUYỂN TRANG
-    const handleSearchNavigate = async (type = searchType, keyword = searchKeyword) => {
-        // Lưu từ khóa ngầm dưới nền nếu đã đăng nhập và có nhập chữ
-        if (isSignedIn && keyword.trim().length > 1) {
-            try {
-                const token = await getToken();
-                // Chạy bất đồng bộ, không cần await block luồng chuyển trang
-                axios.post('/api/users/save-search',
-                    { keyword: keyword.trim() },
-                    { headers: { Authorization: `Bearer ${token}` } }
-                ).catch(err => console.error("Lỗi lưu lịch sử tìm kiếm", err));
-            } catch (error) {
-                console.error("Lỗi lấy token", error);
-            }
+    // --- LOGIC XỬ LÝ RÀNG BUỘC NGÀY CHỌN TỪ LỊCH ---
+    const handleStartDateChange = (e) => {
+        const newStart = e.target.value;
+        setStartDate(newStart);
+        // Tự động đẩy ngày kết thúc lên nếu nó đang nhỏ hơn ngày bắt đầu
+        if (endDate && newStart > endDate) {
+            setEndDate(newStart);
         }
+    };
 
+    const handleEndDateChange = (e) => {
+        const newEnd = e.target.value;
+        setEndDate(newEnd);
+        // Tự động kéo ngày bắt đầu lùi về nếu user cố tình chọn ngày kết thúc nhỏ hơn
+        if (startDate && newEnd < startDate) {
+            setStartDate(newEnd);
+        }
+    };
+
+    // HÀM CHUYỂN TRANG: ĐẨY THÔNG SỐ TỪ TRANG CHỦ SANG TRANG KHÁM PHÁ
+    const handleSearchNavigate = () => {
         const params = new URLSearchParams();
-        if (type && type !== 'ALL') params.append('type', type);
-        if (keyword.trim()) params.append('keyword', keyword.trim());
+        if (searchType && searchType !== 'ALL') params.append('type', searchType);
+
+        // Push 2 tham số ngày vào URL để AllServices hứng được
+        if (startDate) params.append('startDate', startDate);
+        if (endDate) params.append('endDate', endDate);
 
         navigate(`/services?${params.toString()}`);
     }
@@ -73,7 +85,6 @@ const Home = ({ dbUser }) => {
         { id: 'ACTIVITY', label: 'Hoạt động', icon: <Ticket size={18} />, color: 'bg-teal-500' },
     ]
 
-    // Gọi API kéo dữ liệu Banner VIP
     useEffect(() => {
         const fetchPremiumBanners = async () => {
             try {
@@ -90,7 +101,6 @@ const Home = ({ dbUser }) => {
         fetchPremiumBanners();
     }, []);
 
-    // GỌI API KÉO DỮ LIỆU AI GỢI Ý (Chỉ chạy khi đã đăng nhập)
     useEffect(() => {
         const fetchAIRecommendations = async () => {
             if (!isSignedIn) {
@@ -199,24 +209,32 @@ const Home = ({ dbUser }) => {
                                 </AnimatePresence>
                             </div>
 
+                            {/* Ô CHỌN LỊCH */}
                             <div className="flex-1 px-6 py-3 border-r border-gray-100 flex flex-col items-start justify-center">
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Ở đâu?</p>
+                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">Thời gian</p>
                                 <div className="flex items-center gap-2 w-full">
-                                    <MapPin size={14} className="text-[#FFAB40]" />
+                                    <Calendar size={14} className="text-[#FFAB40]" />
                                     <input
-                                        type="text"
-                                        value={searchKeyword}
-                                        onChange={(e) => setSearchKeyword(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSearchNavigate()}
-                                        placeholder="Khu vực, tên dịch vụ..."
-                                        className="w-full bg-transparent font-bold text-[#004D40] outline-none placeholder-gray-300"
+                                        type="date"
+                                        value={startDate}
+                                        onChange={handleStartDateChange}
+                                        className="w-full bg-transparent font-bold text-[#004D40] outline-none text-xs cursor-pointer"
+                                        min={new Date().toISOString().split('T')[0]}
+                                    />
+                                    <span className="text-gray-300 mx-1">-</span>
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={handleEndDateChange}
+                                        className="w-full bg-transparent font-bold text-[#004D40] outline-none text-xs cursor-pointer"
+                                        min={startDate || new Date().toISOString().split('T')[0]}
                                     />
                                 </div>
                             </div>
 
                             <motion.button
                                 whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-                                onClick={() => handleSearchNavigate()}
+                                onClick={handleSearchNavigate}
                                 className="bg-[#004D40] text-white px-10 py-4 rounded-tr-[28px] rounded-bl-[28px] rounded-tl-lg rounded-br-lg font-bold flex items-center justify-center gap-2 hover:bg-[#00332A] transition-all shadow-lg"
                             >
                                 <Search size={20} /> KHÁM PHÁ
@@ -232,7 +250,7 @@ const Home = ({ dbUser }) => {
                     {serviceTypes.map((type) => (
                         <motion.div
                             key={type.id} whileHover={{ y: -5 }}
-                            onClick={() => handleSearchNavigate(type.id, '')}
+                            onClick={() => { setSearchType(type.id); handleSearchNavigate(); }}
                             className="bg-white p-6 rounded-tr-[30px] rounded-bl-[30px] rounded-tl-xl rounded-br-xl shadow-xl flex flex-col items-center justify-center gap-3 cursor-pointer group border border-white"
                         >
                             <div className={`${type.color} text-white p-4 rounded-tr-2xl rounded-bl-2xl shadow-lg group-hover:rotate-12 transition-transform`}>
@@ -323,7 +341,7 @@ const Home = ({ dbUser }) => {
                                 <ChevronRight size={20} />
                             </button>
                             <div className="h-6 w-[1px] bg-gray-300 mx-2"></div>
-                            <button onClick={() => handleSearchNavigate('ALL', '')} className="text-[#004D40] font-bold text-sm flex items-center gap-2 hover:text-[#FFAB40] transition-colors">
+                            <button onClick={handleSearchNavigate} className="text-[#004D40] font-bold text-sm flex items-center gap-2 hover:text-[#FFAB40] transition-colors">
                                 Xem tất cả <ArrowRight size={16} />
                             </button>
                         </div>

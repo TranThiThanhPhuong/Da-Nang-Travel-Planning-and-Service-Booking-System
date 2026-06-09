@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, MapPin, Star, Filter, Utensils, Bed, Ticket, ChevronRight, SlidersHorizontal, Tag, ChevronDown, Sparkles, TrendingUp, TrendingDown } from 'lucide-react';
+import { Search, MapPin, Star, Filter, Utensils, Bed, Ticket, ChevronRight, SlidersHorizontal, Tag, ChevronDown, Sparkles, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth, useUser } from '@clerk/clerk-react';
@@ -27,6 +27,11 @@ const AllServices = () => {
     const [category, setCategory] = useState(getQueryParam('type') || 'ALL');
     const [keyword, setKeyword] = useState(getQueryParam('keyword') || '');
     const [debouncedKeyword, setDebouncedKeyword] = useState(getQueryParam('keyword') || '');
+
+    // STATE QUẢN LÝ TỒN KHO LỊCH
+    const [startDate, setStartDate] = useState(getQueryParam('startDate') || '');
+    const [endDate, setEndDate] = useState(getQueryParam('endDate') || '');
+
     const [selectedAreas, setSelectedAreas] = useState([]);
     const [priceRange, setPriceRange] = useState('');
     const [minRating, setMinRating] = useState(0);
@@ -40,7 +45,7 @@ const AllServices = () => {
         { id: 'ACTIVITY', label: 'Trải nghiệm', icon: <Ticket size={14} /> },
     ];
 
-    const areasList = ['Hải Châu', 'Sơn Trà', 'Ngũ Hành Sơn', 'Thanh Khê', 'Hội An', 'Cù Lao Chàm'];
+    const areasList = ['Quận Hải Châu', 'Quận Ngũ Hành Sơn', 'Quận Sơn Trà', 'Quận Liên Chiểu', 'Huyện Hòa Vang'];
 
     const priceOptions = [
         { id: '', label: 'Mọi mức giá' },
@@ -50,13 +55,38 @@ const AllServices = () => {
         { id: '3000000-', label: 'Trên 3.000.000đ' },
     ];
 
+    // Cập nhật State khi URL thay đổi
     useEffect(() => {
         const typeParam = getQueryParam('type') || 'ALL';
         const keywordParam = getQueryParam('keyword') || '';
+        const startParam = getQueryParam('startDate') || '';
+        const endParam = getQueryParam('endDate') || '';
+
         setCategory(typeParam);
         setKeyword(keywordParam);
         setDebouncedKeyword(keywordParam);
+        setStartDate(startParam);
+        setEndDate(endParam);
     }, [location.search]);
+
+    // --- LOGIC XỬ LÝ RÀNG BUỘC NGÀY CHỌN TỪ LỊCH ---
+    const handleStartDateChange = (e) => {
+        const newStart = e.target.value;
+        setStartDate(newStart);
+        // Nếu ngày kết thúc đang nhỏ hơn ngày bắt đầu mới chọn, tự động đẩy ngày kết thúc lên
+        if (endDate && newStart > endDate) {
+            setEndDate(newStart);
+        }
+    };
+
+    const handleEndDateChange = (e) => {
+        const newEnd = e.target.value;
+        setEndDate(newEnd);
+        // Nếu cố tình chọn ngày kết thúc nhỏ hơn ngày bắt đầu, tự động kéo ngày bắt đầu lùi về
+        if (startDate && newEnd < startDate) {
+            setStartDate(newEnd);
+        }
+    };
 
     // --- 3. LOGIC DEBOUNCE TÌM KIẾM ---
     useEffect(() => {
@@ -69,7 +99,6 @@ const AllServices = () => {
     // LƯU TỪ KHÓA TÌM KIẾM DƯỚI NỀN
     useEffect(() => {
         const saveSearchHistory = async () => {
-            // Chỉ lưu khi user đã đăng nhập, và từ khóa dài hơn 1 ký tự (tránh lưu rác khi vừa gõ 1 chữ)
             if (isSignedIn && debouncedKeyword.trim().length > 1) {
                 try {
                     const token = await getToken();
@@ -77,7 +106,6 @@ const AllServices = () => {
                         { keyword: debouncedKeyword.trim() },
                         { headers: { Authorization: `Bearer ${token}` } }
                     );
-                    // Không cần console.log hay alert để tránh làm phiền trải nghiệm người dùng
                 } catch (error) {
                     console.error("Lỗi lưu lịch sử tìm kiếm", error);
                 }
@@ -105,6 +133,10 @@ const AllServices = () => {
             if (minRating > 0) params.append('minRating', minRating);
             if (sortOption && sortOption !== 'newest') params.append('sort', sortOption);
 
+            // TRUYỀN LÊN API ĐỂ LỌC THEO TỒN KHO
+            if (startDate) params.append('startDate', startDate);
+            if (endDate) params.append('endDate', endDate);
+
             if (priceRange) {
                 const [min, max] = priceRange.split('-');
                 if (min) params.append('minPrice', min);
@@ -129,10 +161,11 @@ const AllServices = () => {
         }
     };
 
+    // Lắng nghe sự thay đổi của bộ lọc để gọi lại API
     useEffect(() => {
         setPage(1);
         fetchServices(false);
-    }, [category, debouncedKeyword, selectedAreas, priceRange, minRating, hasDiscount, sortOption]);
+    }, [category, debouncedKeyword, selectedAreas, priceRange, minRating, hasDiscount, sortOption, startDate, endDate]);
 
     useEffect(() => {
         if (page > 1) {
@@ -174,7 +207,7 @@ const AllServices = () => {
         <div className="bg-[#F5F5F5] min-h-screen font-jakarta pt-28 pb-20">
             <div className="max-w-7xl mx-auto px-6">
 
-                {/* TOP BAR: SEARCH, CATEGORIES & SORT */}
+                {/* TOP BAR: SEARCH, DATE PICKER, CATEGORIES & SORT */}
                 <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-8 mb-12">
                     <div>
                         <h1 className="text-5xl font-cormorant font-bold text-[#004D40] mb-4">Khám phá Đà Nẵng</h1>
@@ -243,15 +276,42 @@ const AllServices = () => {
                         </div>
                     </div>
 
-                    <div className="w-full xl:w-96 relative">
-                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#004D40]/30" size={20} />
-                        <input
-                            type="text"
-                            value={keyword}
-                            onChange={(e) => setKeyword(e.target.value)}
-                            placeholder="Tìm tên dịch vụ, khu vực..."
-                            className="w-full pl-12 pr-4 py-4 bg-white rounded-tr-3xl rounded-bl-3xl border-none shadow-xl outline-none focus:ring-2 focus:ring-[#FFAB40]/50 font-bold text-[#004D40]"
-                        />
+                    {/* MẢNG GIAO DIỆN TÌM KIẾM (CÓ BỘ LỌC LỊCH CHUẨN) */}
+                    <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 w-full xl:w-auto">
+
+                        {/* Lọc theo Lịch */}
+                        <div className="flex items-center justify-between gap-2 bg-white rounded-tr-3xl rounded-bl-3xl shadow-sm px-5 py-4 border border-white focus-within:ring-2 focus-within:ring-[#FFAB40]/50 transition-all flex-1 md:w-auto">
+                            <Calendar size={20} className="text-[#004D40]/30 shrink-0" />
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={handleStartDateChange}
+                                className="bg-transparent font-bold text-[#004D40] outline-none text-xs cursor-pointer w-full max-w-[120px]"
+                                min={new Date().toISOString().split('T')[0]}
+                                title="Ngày bắt đầu"
+                            />
+                            <span className="text-gray-300 font-bold">-</span>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={handleEndDateChange}
+                                className="bg-transparent font-bold text-[#004D40] outline-none text-xs cursor-pointer w-full max-w-[120px]"
+                                min={startDate || new Date().toISOString().split('T')[0]}
+                                title="Ngày kết thúc"
+                            />
+                        </div>
+
+                        {/* Ô Tìm Kiếm Kí Tự */}
+                        <div className="w-full md:w-80 relative flex-1">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[#004D40]/30" size={20} />
+                            <input
+                                type="text"
+                                value={keyword}
+                                onChange={(e) => setKeyword(e.target.value)}
+                                placeholder="Tìm tên dịch vụ, khu vực..."
+                                className="w-full pl-12 pr-4 py-4 bg-white rounded-tr-3xl rounded-bl-3xl border-none shadow-sm outline-none focus:ring-2 focus:ring-[#FFAB40]/50 font-bold text-[#004D40]"
+                            />
+                        </div>
                     </div>
                 </div>
 

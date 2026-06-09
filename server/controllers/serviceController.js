@@ -1,38 +1,85 @@
+import mongoose from 'mongoose';
 import Service from '../models/Service.js';
 import User from '../models/User.js';
+import ServiceInventory from '../models/ServiceInventory.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import ApiError from '../utils/ApiError.js';
 import { removeVietnameseTones } from '../utils/stringUtils.js';
 import { sendNotification } from '../utils/notificationHelper.js';
 import axios from 'axios';
 
-// @desc    Lấy danh sách dịch vụ (Có Lọc, Tìm kiếm, Phân trang, Sắp xếp, Ưu tiên gói VIP)
+// @desc    Lấy danh sách dịch vụ (Có Lọc, Tìm kiếm, Phân trang, Sắp xếp, Ưu tiên gói VIP, Lọc theo Lịch/Tồn kho)
 // @route   GET /api/services
 // @access  Public
 export const getServices = async (req, res, next) => {
   try {
-    const { keyword, type, areas, minPrice, maxPrice, hasDiscount, minRating, sort, page = 1, limit = 6 } = req.query;
+    const {
+      keyword, type, areas, minPrice, maxPrice,
+      hasDiscount, minRating, sort, page = 1, limit = 6,
+      startDate, endDate
+    } = req.query;
 
     // 1. XÂY DỰNG BỘ LỌC (QUERY)
     const query = { approvalStatus: 'APPROVED' };
+
     if (type && type !== 'ALL') query.type = type;
+
     if (keyword) {
       const normalizedKeyword = removeVietnameseTones(keyword);
       query.searchString = { $regex: normalizedKeyword, $options: 'i' };
     }
+
     if (areas) {
       const areaArray = areas.split(',').map(area => new RegExp(area.trim(), 'i'));
       query.address = { $in: areaArray };
     }
+
     if (hasDiscount === 'true') query.discount = { $gt: 0 };
     if (minRating) query['ratingStats.averageRating'] = { $gte: Number(minRating) };
+
     if (minPrice || maxPrice) {
       query.finalPrice = {};
       if (minPrice) query.finalPrice.$gte = Number(minPrice);
       if (maxPrice) query.finalPrice.$lte = Number(maxPrice);
     }
 
-    // 2. XÂY DỰNG SẮP XẾP (SORT)
+    // 2. LOGIC LỌC THEO TỒN KHO NẾU KHÁCH CÓ CHỌN NGÀY
+    if (startDate) {
+      const start = new Date(startDate);
+      const end = endDate ? new Date(endDate) : new Date(startDate);
+
+      // Tạo mảng danh sách các ngày khách muốn đặt
+      const datesToCheck = [];
+      let currentDate = new Date(start);
+      while (currentDate <= end) {
+        datesToCheck.push(new Date(currentDate));
+        currentDate.setDate(currentDate.getDate() + 1);
+      }
+
+      // Lấy toàn bộ Inventory còn chỗ trống trong những ngày đó
+      const availableInventories = await ServiceInventory.find({
+        date: { $in: datesToCheck },
+        availableSlots: { $gt: 0 }
+      }).lean();
+
+      // Nhóm theo serviceId để đếm (VD: Cần đặt 3 ngày thì service đó phải xuất hiện 3 lần trong mảng trên)
+      const serviceIdCounts = {};
+      availableInventories.forEach(inv => {
+        const sId = inv.serviceId.toString();
+        serviceIdCounts[sId] = (serviceIdCounts[sId] || 0) + 1;
+      });
+
+      // Lọc ra các ID thỏa mãn yêu cầu
+      const requiredDaysCount = datesToCheck.length;
+      const validServiceIds = Object.keys(serviceIdCounts)
+        .filter(sId => serviceIdCounts[sId] === requiredDaysCount)
+        .map(id => new mongoose.Types.ObjectId(id)); // Ép kiểu chuẩn để dùng trong Aggregation
+
+      // Thêm điều kiện bắt buộc vào Query chính
+      query._id = { $in: validServiceIds };
+    }
+
+    // 3. XÂY DỰNG SẮP XẾP (SORT)
     let sortObj = { createdAt: -1 };
     if (sort === 'price_asc') sortObj = { finalPrice: 1 };
     if (sort === 'price_desc') sortObj = { finalPrice: -1 };
@@ -42,7 +89,7 @@ export const getServices = async (req, res, next) => {
     const limitNum = Number(limit);
     const skip = (pageNum - 1) * limitNum;
 
-    // 3. AGGREGATE VỚI LOOKUP ĐỂ LẤY GÓI DỊCH VỤ TỪ BẢNG USER
+    // 4. AGGREGATE VỚI LOOKUP ĐỂ LẤY GÓI DỊCH VỤ TỪ BẢNG USER
     const pipeline = [
       { $match: query },
       // JOIN với bảng Users để lấy thông tin gói
@@ -76,9 +123,10 @@ export const getServices = async (req, res, next) => {
       { $project: { ownerInfo: 0, __v: 0 } } // Xóa thông tin ownerInfo không cần thiết trả về
     ];
 
-    // 4. THỰC THI (SONG SONG)
+    // 5. THỰC THI (SONG SONG)
     const [services, total] = await Promise.all([
       Service.aggregate(pipeline),
+      // Khi dùng Aggregate + Filtering ID, cần đếm trên base query để tính pagination chuẩn xác
       Service.countDocuments(query)
     ]);
 
@@ -218,8 +266,6 @@ export const getMyServices = async (req, res) => {
 // @access  Public (Ai cũng xem được)
 export const getServiceById = async (req, res) => {
   try {
-    // Tìm dịch vụ chỉ bằng _id (Gỡ bỏ điều kiện req.user._id)
-    // Populate thêm thông tin cơ bản của Owner để hiển thị trên UI nếu cần
     const service = await Service.findById(req.params.id)
       .populate('ownerId', 'fullName avatar email');
 
@@ -229,11 +275,6 @@ export const getServiceById = async (req, res) => {
         message: 'Không tìm thấy dịch vụ',
       });
     }
-
-    // Tùy chọn nâng cao: Bạn có thể thêm điều kiện chặn không cho xem nếu dịch vụ bị HIDDEN hoặc REJECTED
-    // if (service.approvalStatus !== 'APPROVED') {
-    //   return res.status(403).json({ success: false, message: 'Dịch vụ này hiện không khả dụng' });
-    // }
 
     res.json({
       success: true,
@@ -345,19 +386,15 @@ export const deleteService = async (req, res) => {
 // @access  Public
 export const getPremiumBannerServices = async (req, res, next) => {
   try {
-    // 1. Tìm tất cả các dịch vụ đã duyệt
-    // 2. Populate thông tin 'ownerId' để lấy trường 'currentPackage' của chủ
     const services = await Service.find({ approvalStatus: 'APPROVED' })
       .populate({
         path: 'ownerId',
         select: 'currentPackage',
-        match: { currentPackage: 'ULTIMATE' } // Chỉ lấy những chủ có gói ULTIMATE
+        match: { currentPackage: 'ULTIMATE' }
       })
       .select('name thumbnail description address finalPrice ownerId')
       .limit(20);
 
-    // 3. Sau khi populate, những service có owner không phải ULTIMATE sẽ có ownerId = null
-    // Ta dùng filter để lọc bỏ các kết quả null đó
     const premiumBanners = services.filter(service => service.ownerId !== null);
 
     return ApiResponse.send(res, 200, 'Lấy danh sách banner cao cấp thành công.', premiumBanners);
@@ -373,34 +410,26 @@ export const getAIRecommendations = async (req, res, next) => {
   try {
     const userId = req.user._id;
 
-    // 1. Gọi API sang Python (Hugging Face Spaces)
     const aiResponse = await axios.get(`https://tuanloc78-dpulse-ai-service.hf.space/recommend/${userId}?limit=6`);
 
-    // Nếu User mới tinh, chưa có data để AI phân tích
     if (!aiResponse.data.success || !aiResponse.data.data || aiResponse.data.data.length === 0) {
       return ApiResponse.send(res, 200, 'Chưa đủ dữ liệu để tạo gợi ý.', []);
     }
 
-    // Lấy mảng ID từ Python trả về
     const recommendedIds = aiResponse.data.data.map(item => item.service_id);
 
-    // 2. Query MongoDB để lấy thông tin chi tiết (lọc những cái đã duyệt)
     const services = await Service.find({
       _id: { $in: recommendedIds },
       approvalStatus: 'APPROVED'
     });
 
-    // 3. QUAN TRỌNG: MongoDB $in không giữ đúng thứ tự. 
-    // Phải sort lại mảng theo đúng thứ tự điểm Cosine Similarity từ AI
     const sortedServices = recommendedIds
       .map(id => services.find(s => s._id.toString() === id))
-      .filter(Boolean); // Lọc bỏ nếu service đó lỡ bị xóa hoặc ẩn khỏi DB
+      .filter(Boolean);
 
     return ApiResponse.send(res, 200, 'Lấy danh sách gợi ý AI thành công.', sortedServices);
 
   } catch (error) {
-    // Tình huống Fallback: Nếu AI sập, không dùng ApiError ném 500 làm sập Web.
-    // In log ra terminal server và trả về mảng rỗng cho Frontend an toàn hiển thị.
     console.error("[❌ AI ENGINE ERROR] Lỗi kết nối Hugging Face:", error.message);
     return ApiResponse.send(res, 200, 'Hệ thống AI tạm thời không phản hồi.', []);
   }
@@ -411,7 +440,6 @@ export const getAIRecommendations = async (req, res, next) => {
 // @access  Private/Admin
 export const getAllServicesForAdmin = async (req, res, next) => {
   try {
-    // Tương tự bảng Owner, Admin sẽ lấy toàn bộ và dùng .lean() để tối ưu
     const services = await Service.find({})
       .populate('ownerId', 'fullName email avatar clerkId')
       .sort({ createdAt: -1 })
@@ -443,7 +471,6 @@ export const reviewService = async (req, res, next) => {
       throw new ApiError(404, "Không tìm thấy dịch vụ");
     }
 
-    // Cập nhật trạng thái và lý do
     service.approvalStatus = status;
     if (adminNotes) {
       service.adminNotes = adminNotes;
@@ -451,7 +478,6 @@ export const reviewService = async (req, res, next) => {
 
     await service.save();
 
-    // 🔔 TÍNH NĂNG BỔ SUNG: Bắn thông báo về cho Owner
     if (service.ownerId) {
       const isApproved = status === 'APPROVED';
       await sendNotification({
@@ -472,6 +498,51 @@ export const reviewService = async (req, res, next) => {
       `Đã ${status === 'APPROVED' ? 'phê duyệt' : 'từ chối'} dịch vụ thành công`,
       service
     );
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Kiểm tra số lượng chỗ trống (tồn kho) khả dụng của 1 dịch vụ theo khoảng ngày
+// @route   GET /api/services/:id/inventory
+// @access  Public
+export const checkServiceInventory = async (req, res, next) => {
+  try {
+    const { id } = req.params; // serviceId
+    const { checkInDate, checkOutDate } = req.query;
+
+    if (!checkInDate) {
+      return ApiResponse.send(res, 200, 'Chưa có ngày bắt đầu', { availableSlots: null });
+    }
+
+    const start = new Date(checkInDate);
+    // Nếu không có ngày kết thúc (nhà hàng, hoạt động), chỉ check 1 ngày
+    const end = checkOutDate ? new Date(checkOutDate) : new Date(checkInDate);
+
+    const datesToCheck = [];
+    let currentDate = new Date(start);
+    while (currentDate <= end) {
+      datesToCheck.push(new Date(currentDate));
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    const inventories = await ServiceInventory.find({
+      serviceId: id,
+      date: { $in: datesToCheck }
+    }).lean();
+
+    // Nếu DB không trả về đủ số ngày khách yêu cầu -> Owner chưa thiết lập kho cho ngày đó (chưa mở bán)
+    if (inventories.length !== datesToCheck.length) {
+      return ApiResponse.send(res, 200, 'Lịch chưa mở bán', { availableSlots: 0 });
+    }
+
+    // TÌM "ĐIỂM NGHẼN" (BOTTLENECK)
+    // VD: Khách đặt 3 ngày. Ngày 1 còn 5 phòng, Ngày 2 còn 2 phòng, Ngày 3 còn 4 phòng.
+    // => Khách chỉ có thể đặt tối đa 2 phòng cho toàn bộ chuyến đi.
+    const minAvailable = Math.min(...inventories.map(inv => inv.availableSlots));
+
+    return ApiResponse.send(res, 200, 'Lấy tồn kho thành công', { availableSlots: minAvailable });
+
   } catch (error) {
     next(error);
   }
