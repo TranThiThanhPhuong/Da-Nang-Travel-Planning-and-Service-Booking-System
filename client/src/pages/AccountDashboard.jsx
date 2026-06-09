@@ -3,7 +3,7 @@ import WishlistGrid from '../components/Account/WishlistGrid';
 import MyItineraries from "../components/Account/MyItineraries";
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, ReceiptText, Map, Settings, User } from 'lucide-react';
+import { Heart, ReceiptText, Map, User } from 'lucide-react';
 import { useUser } from '@clerk/clerk-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 
@@ -22,24 +22,21 @@ const AccountDashboard = () => {
 
     const handleTabChange = (tabId) => {
         setActiveTab(tabId);
-        // Cập nhật lại thanh URL cho chuẩn, không tải lại trang (replace: true)
         navigate(`/account?tab=${tabId}`, { replace: true });
     };
 
     const sidebarMenu = [
         { id: 'bookings', label: 'Đơn đặt của tôi', icon: <ReceiptText size={20} /> },
         { id: 'wishlist', label: 'Danh sách đã lưu', icon: <Heart size={20} /> },
-        { id: 'itineraries', label: 'Lịch trình cá nhân', icon: <Map size={20} /> },
-        { id: 'settings', label: 'Cài đặt tài khoản', icon: <Settings size={20} /> }
+        { id: 'itineraries', label: 'Lịch trình cá nhân', icon: <Map size={20} /> }
     ];
 
     return (
         <div className="bg-[#F5F5F5] min-h-screen pt-32 pb-20 font-jakarta">
             <div className="max-w-7xl mx-auto px-6 grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
 
-                {/* LỚP GIAO DIỆN SIDEBAR (LEFT PANEL - 3 CỘT) */}
+                {/* LEFT PANEL */}
                 <aside className="lg:col-span-3 bg-white rounded-3xl p-6 border border-white shadow-xl flex flex-col items-center">
-                    {/* Khối hiển thị thông tin User lấy từ Session Clerk */}
                     <div className="flex flex-col items-center text-center pb-6 mb-6 border-b border-gray-100 w-full">
                         <div className="w-20 h-20 rounded-full overflow-hidden mb-4 border-4 border-[#004D40]/10 shadow-inner bg-gray-50 flex items-center justify-center">
                             {user?.imageUrl ? (
@@ -56,7 +53,6 @@ const AccountDashboard = () => {
                         </p>
                     </div>
 
-                    {/* Danh sách các nút Tab điều hướng */}
                     <nav className="w-full space-y-1">
                         {sidebarMenu.map((item) => {
                             const isCurrent = activeTab === item.id;
@@ -76,7 +72,7 @@ const AccountDashboard = () => {
                     </nav>
                 </aside>
 
-                {/* LỚP GIAO DIỆN NỘI DUNG CHÍNH (RIGHT PANEL - 9 CỘT) */}
+                {/* RIGHT PANEL */}
                 <main className="lg:col-span-9 bg-white rounded-3xl p-8 md:p-10 border border-white shadow-xl min-h-[500px]">
                     <AnimatePresence mode="wait">
                         {activeTab === 'bookings' && (
@@ -102,17 +98,8 @@ const AccountDashboard = () => {
                                 <MyItineraries embedded={true} />
                             </motion.div>
                         )}
-
-                        {activeTab === 'settings' && (
-                            <motion.div key="settings" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}>
-                                <h2 className="text-2xl font-black text-[#004D40] mb-2">Cài đặt tài khoản</h2>
-                                <p className="text-sm font-medium text-gray-400 mb-8">Thiết lập cấu hình bảo mật thông tin cá nhân của bạn.</p>
-                                <div className="text-center py-20 text-gray-400 font-medium italic border-2 border-dashed border-gray-100 rounded-2xl">Phân hệ cài đặt đang bảo trì...</div>
-                            </motion.div>
-                        )}
                     </AnimatePresence>
                 </main>
-
             </div>
         </div>
     );

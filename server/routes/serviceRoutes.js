@@ -9,7 +9,8 @@ import {
     getPremiumBannerServices,
     getAllServicesForAdmin,
     reviewService,
-    getAIRecommendations
+    getAIRecommendations,
+    checkServiceInventory
 } from '../controllers/serviceController.js';
 import { verifyClerkToken } from '../middlewares/auth.js';
 import { requireRole } from '../middlewares/roleCheck.js';
@@ -28,6 +29,7 @@ router.patch('/admin/:id/review', verifyClerkToken, requireRole('ADMIN'), review
 // Route dành cho User / Owner
 router.get('/my', verifyClerkToken, requireRole('OWNER'), getMyServices);
 router.get('/recommendations', verifyClerkToken, getAIRecommendations);
+router.get('/:id/inventory', checkServiceInventory);
 
 router.post('/', verifyClerkToken, requireRole('OWNER'), checkServiceQuota, createService);
 router.put('/:id', verifyClerkToken, requireRole('OWNER'), updateService);
