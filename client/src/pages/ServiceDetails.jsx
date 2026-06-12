@@ -3,10 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
-import { useAuth } from '@clerk/clerk-react';
+import { useAuth, useUser } from '@clerk/clerk-react'; // Nhập thêm useUser
 import {
     Star, Share2, Heart, Users, User, Info, CheckCircle2, Camera, X, ChevronLeft, ChevronRight, Sparkles, Building, Umbrella,
-    Waves, Dumbbell, Leaf, Utensils, Music, Baby, Wine, Mountain, Sunrise, Moon, Ticket, Briefcase, ArrowLeft, CarFront, MonitorSmartphone, ShieldCheck, MapPin, Clock, Coffee, Calendar
+    Waves, Dumbbell, Leaf, Utensils, Music, Baby, Wine, Mountain, Sunrise, Moon, Ticket, Briefcase, ArrowLeft, CarFront, MonitorSmartphone, ShieldCheck, MapPin, Clock, Coffee, Calendar, Mail
 } from 'lucide-react';
 import FeedbackModal from '../components/FeedbackModal';
 import ServiceReviews from './ServiceReviews';
@@ -92,7 +92,9 @@ const AMENITIES_DICT = {
 const ServiceDetails = () => {
     const { id } = useParams();
     const navigate = useNavigate();
-    const { getToken, userId } = useAuth();
+
+    const { getToken, userId } = useAuth(); // userId của Clerk
+    const { user } = useUser(); // Lấy data chi tiết của user đang đăng nhập (chứa email)
 
     const [service, setService] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -102,6 +104,9 @@ const ServiceDetails = () => {
     const [checkInDate, setCheckInDate] = useState('');
     const [checkOutDate, setCheckOutDate] = useState('');
     const [quantity, setQuantity] = useState(1);
+
+    const [availableSlots, setAvailableSlots] = useState(null);
+    const [showOwnerModal, setShowOwnerModal] = useState(false);
 
     const [custName, setCustName] = useState('');
     const [custPhone, setCustPhone] = useState('');
@@ -141,7 +146,6 @@ const ServiceDetails = () => {
 
     const [isSaved, setIsSaved] = useState(false);
 
-    // Kiểm tra xem người dùng hiện tại đã lưu dịch vụ này vào danh sách yêu thích chưa
     useEffect(() => {
         const checkWishlistStatus = async () => {
             if (!userId) return;
@@ -150,7 +154,6 @@ const ServiceDetails = () => {
                 const res = await axios.get('/api/wishlists/my-wishlists', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                // Kiểm tra xem ID của dịch vụ hiện tại có nằm trong danh sách yêu thích không
                 const savedList = res.data.data;
                 const isFound = savedList.some(item => item._id === id);
                 setIsSaved(isFound);
@@ -160,6 +163,26 @@ const ServiceDetails = () => {
         };
         checkWishlistStatus();
     }, [id, userId]);
+
+    useEffect(() => {
+        const checkInventory = async () => {
+            if (!checkInDate || !service) return;
+            if (service.type === 'HOTEL' && !checkOutDate) return;
+
+            try {
+                const outDate = service.type === 'HOTEL' ? checkOutDate : checkInDate;
+                const res = await axios.get(`/api/services/${id}/inventory`, {
+                    params: { checkInDate, checkOutDate: outDate }
+                });
+                if (res.data.success) {
+                    setAvailableSlots(res.data.data.availableSlots);
+                }
+            } catch (error) {
+                setAvailableSlots(null);
+            }
+        };
+        checkInventory();
+    }, [checkInDate, checkOutDate, id, service]);
 
     const handleWishlistToggle = async () => {
         if (!userId) {
@@ -177,13 +200,26 @@ const ServiceDetails = () => {
                 { serviceId: id },
                 { headers: { Authorization: `Bearer ${token}` } }
             );
-
-            // Cập nhật trạng thái hiển thị trái tim dựa trên kết quả trả về từ API
             setIsSaved(res.data.data.isSaved);
             toast.success(res.data.message);
         } catch (error) {
-            console.error('Lỗi khi thao tác danh sách yêu thích:', error);
             toast.error('Không thể cập nhật danh sách yêu thích. Vui lòng thử lại.');
+        }
+    };
+
+    const handleShare = async () => {
+        if (navigator.share) {
+            try {
+                await navigator.share({
+                    title: service?.name || 'Dịch vụ tại D-Pulse',
+                    url: window.location.href
+                });
+            } catch (err) {
+                console.log('Hủy chia sẻ', err);
+            }
+        } else {
+            navigator.clipboard.writeText(window.location.href);
+            toast.success("Đã copy đường dẫn vào bộ nhớ tạm!");
         }
     };
 
@@ -284,72 +320,31 @@ const ServiceDetails = () => {
 
     const handleBookingClick = () => {
         if (!userId) {
-            return setModalConfig({
-                isOpen: true,
-                type: 'warning',
-                title: 'Yêu cầu đăng nhập',
-                message: 'Bạn cần đăng nhập vào hệ thống để có thể đặt dịch vụ này.',
-            });
+            return setModalConfig({ isOpen: true, type: 'warning', title: 'Yêu cầu đăng nhập', message: 'Bạn cần đăng nhập vào hệ thống để có thể đặt dịch vụ này.' });
         }
         if (!checkInDate) {
-            return setModalConfig({
-                isOpen: true,
-                type: 'warning',
-                title: 'Thiếu thông tin',
-                message: 'Vui lòng chọn ngày đặt dịch vụ.',
-            });
+            return setModalConfig({ isOpen: true, type: 'warning', title: 'Thiếu thông tin', message: 'Vui lòng chọn ngày đặt dịch vụ.' });
         }
         if (service.type === 'HOTEL' && !checkOutDate) {
-            return setModalConfig({
-                isOpen: true,
-                type: 'warning',
-                title: 'Thiếu thông tin',
-                message: 'Vui lòng chọn ngày trả phòng.',
-            });
+            return setModalConfig({ isOpen: true, type: 'warning', title: 'Thiếu thông tin', message: 'Vui lòng chọn ngày trả phòng.' });
         }
         if (service.type === 'HOTEL' && new Date(checkInDate) >= new Date(checkOutDate)) {
-            return setModalConfig({
-                isOpen: true,
-                type: 'error',
-                title: 'Ngày không hợp lệ',
-                message: 'Ngày trả phòng phải sau ngày nhận phòng!',
-            });
+            return setModalConfig({ isOpen: true, type: 'error', title: 'Ngày không hợp lệ', message: 'Ngày trả phòng phải sau ngày nhận phòng!' });
         }
         if (!quantity || Number(quantity) < 1) {
-            return setModalConfig({
-                isOpen: true,
-                type: 'warning',
-                title: 'Số lượng không hợp lệ',
-                message: 'Vui lòng nhập số lượng tối thiểu là 1.',
-            });
+            return setModalConfig({ isOpen: true, type: 'warning', title: 'Số lượng không hợp lệ', message: 'Vui lòng nhập số lượng tối thiểu là 1.' });
         }
-
         if (!custName.trim()) {
-            return setModalConfig({
-                isOpen: true,
-                type: 'warning',
-                title: 'Thiếu thông tin khách hàng',
-                message: 'Vui lòng điền họ và tên người liên hệ nhận phòng/dịch vụ.',
-            });
+            return setModalConfig({ isOpen: true, type: 'warning', title: 'Thiếu thông tin khách hàng', message: 'Vui lòng điền họ và tên người liên hệ nhận phòng/dịch vụ.' });
         }
         if (!custPhone.trim() || !/^(0|84)(3|5|7|8|9)[0-9]{8}$/.test(custPhone.trim())) {
-            return setModalConfig({
-                isOpen: true,
-                type: 'warning',
-                title: 'Số điện thoại không hợp lệ',
-                message: 'Vui lòng nhập số điện thoại liên hệ chính xác (gồm 10 chữ số).',
-            });
+            return setModalConfig({ isOpen: true, type: 'warning', title: 'Số điện thoại không hợp lệ', message: 'Vui lòng nhập số điện thoại liên hệ chính xác (gồm 10 chữ số).' });
         }
         if (!custEmail.trim() || !/^\S+@\S+\.\S+$/.test(custEmail.trim())) {
-            return setModalConfig({
-                isOpen: true,
-                type: 'warning',
-                title: 'Email không hợp lệ',
-                message: 'Vui lòng điền chính xác địa chỉ Email để hệ thống gửi hóa đơn điện tử.',
-            });
+            return setModalConfig({ isOpen: true, type: 'warning', title: 'Email không hợp lệ', message: 'Vui lòng điền chính xác địa chỉ Email để hệ thống gửi hóa đơn điện tử.' });
         }
-        const totalAmount = calculateTotal();
 
+        const totalAmount = calculateTotal();
         setModalConfig({
             isOpen: true,
             type: 'confirm',
@@ -361,9 +356,7 @@ const ServiceDetails = () => {
 
     const executeBooking = async () => {
         setModalConfig({
-            isOpen: true,
-            type: 'loading',
-            title: 'Đang xử lý giao dịch...',
+            isOpen: true, type: 'loading', title: 'Đang xử lý giao dịch...',
             message: 'Hệ thống đang kiểm tra kho và kết nối cổng thanh toán. Vui lòng không đóng trình duyệt lúc này.',
         });
 
@@ -374,41 +367,21 @@ const ServiceDetails = () => {
                 checkInDate,
                 checkOutDate: service.type === 'HOTEL' ? checkOutDate : checkInDate,
                 quantity: Number(quantity),
-                customerInfo: { 
-                    fullName: custName.trim(), 
-                    phoneNumber: custPhone.trim(), 
-                    email: custEmail.trim(),
-                    note: custNote.trim() || undefined
-                },  
+                customerInfo: { fullName: custName.trim(), phoneNumber: custPhone.trim(), email: custEmail.trim(), note: custNote.trim() || undefined },
             };
 
-            const bookingRes = await axios.post('/api/bookings', payload, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
-            const newBookingId = bookingRes.data.data._id;
+            const bookingRes = await axios.post('/api/bookings', payload, { headers: { Authorization: `Bearer ${token}` } });
+            const paymentRes = await axios.post('/api/payments/create-link', { bookingId: bookingRes.data.data._id }, { headers: { Authorization: `Bearer ${token}` } });
 
-            const paymentRes = await axios.post('/api/payments/create-link',
-                { bookingId: newBookingId },
-                { headers: { Authorization: `Bearer ${token}` } }
-            );
-
-            const checkoutUrl = paymentRes.data.data.checkoutUrl;
-
-            if (checkoutUrl) {
-                window.location.href = checkoutUrl;
+            if (paymentRes.data.data.checkoutUrl) {
+                window.location.href = paymentRes.data.data.checkoutUrl;
             } else {
                 throw new Error('Không lấy được link từ PayOS');
             }
-
         } catch (error) {
-            console.error('Lỗi quy trình đặt chỗ:', error);
-            const errorMsg = error.response?.data?.message || 'Đã xảy ra lỗi không xác định từ hệ thống. Vui lòng thử lại sau.';
-
             setModalConfig({
-                isOpen: true,
-                type: 'error',
-                title: 'Đặt dịch vụ thất bại',
-                message: errorMsg,
+                isOpen: true, type: 'error', title: 'Đặt dịch vụ thất bại',
+                message: error.response?.data?.message || 'Đã xảy ra lỗi không xác định từ hệ thống. Vui lòng thử lại sau.',
             });
         }
     };
@@ -434,6 +407,15 @@ const ServiceDetails = () => {
     const lat = service.location?.coordinates?.[1] || 16.047079;
     const lng = service.location?.coordinates?.[0] || 108.206230;
 
+    const currentUserEmail = user?.primaryEmailAddress?.emailAddress;
+    const ownerEmail = service?.ownerId?.email;
+    const ownerClerkId = service?.ownerId?.clerkId;
+
+    const isOwnerOfService = Boolean(
+        (userId && ownerClerkId && userId === ownerClerkId) ||
+        (currentUserEmail && ownerEmail && currentUserEmail === ownerEmail)
+    );
+
     return (
         <div className="bg-[#F5F5F5] min-h-screen font-jakarta pt-28 pb-20 relative">
 
@@ -458,23 +440,47 @@ const ServiceDetails = () => {
                             <span className="bg-[#004D40] text-[#FFAB40] px-4 py-1 rounded-tr-xl rounded-bl-xl text-[10px] font-black tracking-widest uppercase">
                                 {service.type}
                             </span>
+
                             <div className="flex items-center gap-1 text-[#FFAB40]">
-                                <Star size={14} className="fill-[#FFAB40]" />
-                                <span className="text-sm font-black text-[#004D40]">
-                                    {service.ratingStats?.averageRating || 5.0} ({service.ratingStats?.totalReviews || 0} đánh giá)
-                                </span>
+                                {service.ratingStats?.totalReviews > 0 ? (
+                                    <>
+                                        <Star size={14} className="fill-[#FFAB40]" />
+                                        <span className="text-sm font-black text-[#004D40]">
+                                            {service.ratingStats?.averageRating || 5.0} ({service.ratingStats?.totalReviews} đánh giá)
+                                        </span>
+                                    </>
+                                ) : (
+                                    <span className="text-sm font-black text-[#004D40] opacity-50">0 đánh giá</span>
+                                )}
                             </div>
                         </div>
                         <h1 className="text-4xl md:text-6xl font-cormorant font-bold text-[#004D40] leading-tight max-w-4xl">{service.name}</h1>
                         <p className="flex items-center gap-2 text-[#004D40]/50 mt-4 font-bold text-sm uppercase tracking-widest">
                             <MapPin size={16} className="text-[#FFAB40]" /> {service.address}
                         </p>
+
+                        {/* WIDGET CHỦ SỞ HỮU MỚI (CLICK ĐỂ MỞ POP-UP) */}
+                        {service.ownerId && (
+                            <motion.div
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={() => setShowOwnerModal(true)}
+                                className="mt-6 inline-flex items-center gap-3 bg-white/80 backdrop-blur-sm p-2 pr-6 rounded-full shadow-sm border border-white cursor-pointer hover:shadow-md transition-all"
+                            >
+                                <img src={service.ownerId.avatar || 'https://via.placeholder.com/150'} alt={service.ownerId.fullName} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm" />
+                                <div>
+                                    <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Đăng bởi đối tác</p>
+                                    <p className="text-sm font-bold text-[#004D40] leading-none mt-0.5">{service.ownerId.fullName}</p>
+                                </div>
+                            </motion.div>
+                        )}
                     </motion.div>
 
                     <div className="flex items-center gap-3 self-end md:self-auto">
-                        <button className="p-3 bg-white hover:bg-gray-100 border border-gray-200 rounded-full shadow-md text-[#004D40] transition-colors" title="Chia sẻ dịch vụ">
+                        <button onClick={handleShare} className="p-3 bg-white hover:bg-gray-100 border border-gray-200 rounded-full shadow-md text-[#004D40] transition-colors" title="Chia sẻ dịch vụ">
                             <Share2 size={20} />
                         </button>
+
                         <button
                             onClick={handleWishlistToggle}
                             className="p-3 bg-white hover:bg-gray-100 border border-gray-200 rounded-full shadow-md transition-colors"
@@ -542,23 +548,20 @@ const ServiceDetails = () => {
                             </h2>
                             <div className="w-full h-[400px] rounded-tr-[40px] rounded-bl-[40px] rounded-tl-xl rounded-br-xl overflow-hidden border-4 border-[#F5F5F5]">
                                 <iframe
-                                    width="100%"
-                                    height="100%"
-                                    frameBorder="0"
-                                    scrolling="no"
-                                    marginHeight="0"
-                                    marginWidth="0"
+                                    width="100%" height="100%" frameBorder="0" scrolling="no" marginHeight="0" marginWidth="0"
                                     src={`https://www.openstreetmap.org/export/embed.html?bbox=${lng - 0.01}%2C${lat - 0.01}%2C${lng + 0.01}%2C${lat + 0.01}&layer=mapnik&marker=${lat}%2C${lng}`}
                                     style={{ border: 0 }}
                                 ></iframe>
                             </div>
+                            <p className="text-sm font-bold text-[#004D40] mt-5 text-center px-4">
+                                {service.address}
+                            </p>
                         </section>
                     </div>
 
                     <aside className="lg:col-span-4">
                         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="sticky top-28 bg-white/80 backdrop-blur-xl p-8 rounded-tr-[50px] rounded-bl-[50px] rounded-tl-2xl rounded-br-2xl border border-white shadow-2xl">
 
-                            {/* CẤU TRÚC HIỂN THỊ BIỂU PHÍ KHUYẾN MÃI MỚI CHỐNG TRÀN */}
                             <div className="flex flex-col mb-8 pb-6 border-b border-[#E0F2F1]">
                                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Giá cơ sở</p>
                                 <div className="flex justify-between items-end w-full">
@@ -607,65 +610,38 @@ const ServiceDetails = () => {
                                     </div>
                                 )}
 
+                                {availableSlots !== null && (
+                                    <p className="text-xs font-bold text-[#00C853] -mt-2 text-right">
+                                        Hiện còn {availableSlots} {unitLabel.toLowerCase().replace('số ', '')} trống
+                                    </p>
+                                )}
+
                                 <div>
                                     <label className="text-[10px] font-black text-[#004D40]/40 uppercase tracking-widest mb-2 block">{unitLabel}</label>
                                     <div className="relative">
                                         <Users className="absolute right-4 top-1/2 -translate-y-1/2 text-[#FFAB40]" size={18} />
-
-                                        {/* Ô INPUT SỐ LƯỢNG ĐÃ ĐƯỢC THIẾT LẬP RÀNG BUỘC CHẶN GIÁ TRỊ ÂM / KHÔNG */}
                                         <input
-                                            type="number"
-                                            value={quantity}
-                                            onChange={(e) => setQuantity(e.target.value)}
-                                            onBlur={(e) => {
-                                                if (!e.target.value || Number(e.target.value) < 1) {
-                                                    setQuantity(1);
-                                                }
-                                            }}
+                                            type="number" value={quantity} onChange={(e) => setQuantity(e.target.value)}
+                                            onBlur={(e) => { if (!e.target.value || Number(e.target.value) < 1) setQuantity(1); }}
                                             min="1"
                                             className="w-full bg-[#F5F5F5] border border-[#E0F2F1] rounded-tr-xl rounded-bl-xl p-4 pr-12 outline-none focus:ring-2 focus:ring-[#FFAB40]/50 font-bold text-[#004D40]"
                                         />
                                     </div>
                                 </div>
                                 <hr className="border-[#E0F2F1] my-4" />
-                                {/* FORM THÔNG TIN KHÁCH HÀNG (MỚI) */}
+
                                 <div className="space-y-4 bg-emerald-50/30 p-4 rounded-2xl border border-emerald-100/50">
                                     <p className="text-[11px] font-extrabold text-[#004D40] uppercase tracking-wider flex items-center gap-1.5">
                                         <User size={14} className="text-[#FFAB40]" /> Thông tin người liên hệ
                                     </p>
-                                <div className="space-y-3">
-                                    <input
-                                        type="text"
-                                        placeholder="Họ và tên khách hàng *"
-                                        value={custName}
-                                        onChange={(e) => setCustName(e.target.value)}
-                                        className="w-full bg-white border border-[#E0F2F1] rounded-lg p-3 text-sm font-semibold outline-none focus:border-[#FFAB40] text-[#004D40] placeholder-gray-400"
-                                    />
-                                    <input
-                                        type="tel"
-                                        placeholder="Số điện thoại *"
-                                        value={custPhone}
-                                        onChange={(e) => setCustPhone(e.target.value)}
-                                        className="w-full bg-white border border-[#E0F2F1] rounded-lg p-3 text-sm font-semibold outline-none focus:border-[#FFAB40] text-[#004D40] placeholder-gray-400"
-                                    />
-                                    <input
-                                        type="email"
-                                        placeholder="Địa chỉ Email *"
-                                        value={custEmail}
-                                        onChange={(e) => setCustEmail(e.target.value)}
-                                        className="w-full bg-white border border-[#E0F2F1] rounded-lg p-3 text-sm font-semibold outline-none focus:border-[#FFAB40] text-[#004D40] placeholder-gray-400"
-                                    />   
-                                    <textarea
-                                        placeholder="Ghi chú đặc biệt cho nhà cung cấp (nếu có)..."
-                                        value={custNote}
-                                        onChange={(e) => setCustNote(e.target.value)}
-                                        maxLength={1000}
-                                        rows={2}
-                                        className="w-full bg-white border border-[#E0F2F1] rounded-lg p-3 text-sm font-medium outline-none focus:border-[#FFAB40] text-[#004D40] placeholder-gray-400 resize-none"
-                                    />
+                                    <div className="space-y-3">
+                                        <input type="text" placeholder="Họ và tên khách hàng *" value={custName} onChange={(e) => setCustName(e.target.value)} className="w-full bg-white border border-[#E0F2F1] rounded-lg p-3 text-sm font-semibold outline-none focus:border-[#FFAB40] text-[#004D40] placeholder-gray-400" />
+                                        <input type="tel" placeholder="Số điện thoại *" value={custPhone} onChange={(e) => setCustPhone(e.target.value)} className="w-full bg-white border border-[#E0F2F1] rounded-lg p-3 text-sm font-semibold outline-none focus:border-[#FFAB40] text-[#004D40] placeholder-gray-400" />
+                                        <input type="email" placeholder="Địa chỉ Email *" value={custEmail} onChange={(e) => setCustEmail(e.target.value)} className="w-full bg-white border border-[#E0F2F1] rounded-lg p-3 text-sm font-semibold outline-none focus:border-[#FFAB40] text-[#004D40] placeholder-gray-400" />
+                                        <textarea placeholder="Ghi chú đặc biệt cho nhà cung cấp (nếu có)..." value={custNote} onChange={(e) => setCustNote(e.target.value)} maxLength={1000} rows={2} className="w-full bg-white border border-[#E0F2F1] rounded-lg p-3 text-sm font-medium outline-none focus:border-[#FFAB40] text-[#004D40] placeholder-gray-400 resize-none" />
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
                             <div className="mt-6 flex justify-between items-center bg-[#F5F5F5] p-4 rounded-xl border border-[#E0F2F1]">
                                 <span className="text-sm font-bold text-[#004D40]">Tổng tạm tính:</span>
@@ -673,11 +649,14 @@ const ServiceDetails = () => {
                             </div>
 
                             <motion.button
-                                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
+                                whileHover={!isOwnerOfService ? { scale: 1.02 } : {}}
+                                whileTap={!isOwnerOfService ? { scale: 0.98 } : {}}
                                 onClick={handleBookingClick}
-                                className={`w-full text-white py-5 rounded-tr-[24px] rounded-bl-[24px] rounded-tl-md rounded-br-md font-black text-sm uppercase tracking-[0.3em] mt-6 shadow-xl shadow-[#004D40]/20 flex items-center justify-center gap-3 transition-all bg-[#004D40] hover:bg-[#002B24]`}
+                                disabled={isOwnerOfService}
+                                className={`w-full text-white py-5 rounded-tr-[24px] rounded-bl-[24px] rounded-tl-md rounded-br-md font-black text-sm uppercase tracking-[0.3em] mt-6 flex items-center justify-center gap-3 transition-all shadow-xl
+                                    ${isOwnerOfService ? 'bg-gray-400 cursor-not-allowed opacity-60 shadow-none' : 'bg-[#004D40] hover:bg-[#002B24] shadow-[#004D40]/20'}`}
                             >
-                                <CheckCircle2 size={18} /> {actionLabel}
+                                <CheckCircle2 size={18} /> {isOwnerOfService ? 'Không thể tự đặt' : actionLabel}
                             </motion.button>
                         </motion.div>
                     </aside>
@@ -734,10 +713,64 @@ const ServiceDetails = () => {
                 )}
             </AnimatePresence>
 
-            <FeedbackModal
-                {...modalConfig}
-                onClose={closeModal}
-            />
+            {/* POP-UP (MODAL) HIỂN THỊ THÔNG TIN CHỦ SỞ HỮU (OWNER) */}
+            <AnimatePresence>
+                {showOwnerModal && service.ownerId && (
+                    <motion.div
+                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+                        onClick={() => setShowOwnerModal(false)}
+                    >
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                            onClick={(e) => e.stopPropagation()}
+                            className="bg-white rounded-[40px] p-8 max-w-sm w-full shadow-2xl relative overflow-hidden"
+                        >
+                            {/* Lớp nền Header cho Modal */}
+                            <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-br from-[#004D40] to-[#00695C]"></div>
+
+                            <button onClick={() => setShowOwnerModal(false)} className="absolute top-6 right-6 text-white hover:text-[#FFAB40] transition bg-black/20 p-2 rounded-full z-10">
+                                <X size={20} />
+                            </button>
+
+                            <div className="relative z-10 flex flex-col items-center mt-10">
+                                <div className="w-24 h-24 rounded-full p-1 bg-white shadow-lg mb-4">
+                                    <img src={service.ownerId.avatar || 'https://via.placeholder.com/150'} alt="avatar" className="w-full h-full rounded-full object-cover" />
+                                </div>
+
+                                <h3 className="text-2xl font-cormorant font-bold text-[#004D40] text-center">{service.ownerId.fullName}</h3>
+
+                                <div className="flex items-center gap-1.5 bg-[#E0F2F1] text-[#004D40] text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full mt-2">
+                                    <ShieldCheck size={14} /> Đối tác xác thực
+                                </div>
+
+                                <div className="w-full mt-8 space-y-3">
+                                    <div className="flex items-center gap-4 bg-[#F5F5F5] p-4 rounded-2xl border border-[#E0F2F1]">
+                                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-[#FFAB40] shadow-sm">
+                                            <Mail size={18} />
+                                        </div>
+                                        <div className="overflow-hidden">
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Email liên hệ</p>
+                                            <p className="text-sm font-bold text-[#004D40] truncate" title={service.ownerId.email}>{service.ownerId.email}</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex items-center gap-4 bg-[#F5F5F5] p-4 rounded-2xl border border-[#E0F2F1]">
+                                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-[#00C853] shadow-sm">
+                                            <CheckCircle2 size={18} />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Đánh giá hệ thống</p>
+                                            <p className="text-sm font-bold text-[#004D40]">Đối tác uy tín D-Pulse</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            <FeedbackModal {...modalConfig} onClose={closeModal} />
         </div>
     );
 }
