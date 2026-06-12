@@ -5,7 +5,8 @@ import {
     createSubscriptionPayment,
     verifySubscriptionPayment,
     cancelSubscriptionPayment,
-    getMySaaSStatus
+    getMySaaSStatus,
+    handlePayOSWebhook
 } from '../controllers/ownerSaaSController.js';
 import { verifyClerkToken } from '../middlewares/auth.js';
 import { requireRole } from '../middlewares/roleCheck.js';
@@ -13,6 +14,7 @@ import { requireRole } from '../middlewares/roleCheck.js';
 const router = express.Router();
 
 router.use(verifyClerkToken, requireRole('OWNER'));
+router.post('/webhook', handlePayOSWebhook);
 
 router.get('/packages', getActivePackages);
 router.get('/transactions', getMyTransactions);
