@@ -6,6 +6,7 @@ import OwnerApplication from '../models/OwnerApplication.js';
 import ApiError from '../utils/ApiError.js';
 import ApiResponse from '../utils/ApiResponse.js';
 import { redlock } from '../config/redis.js';
+import { PayOS } from '@payos/node';
 import mongoose from 'mongoose';
 import { sendNotification } from '../utils/notificationHelper.js';
 
@@ -321,6 +322,19 @@ export const cancelBooking = async (req, res, next) => {
 
                 await session.commitTransaction();
                 session.endSession();
+
+                if (booking.paymentDetails?.transactionId) {
+                    try {
+                        const ownerApp = await OwnerApplication.findOne({ userId: booking.ownerId, status: 'APPROVED' }).select('+payos.clientId +payos.apiKey +payos.checksumKey').lean();
+                        if (ownerApp) {
+                            const { clientId, apiKey, checksumKey } = ownerApp.payos;
+                            const payos = new PayOS(clientId, apiKey, checksumKey);
+                            await payos.cancelPaymentLink(Number(booking.paymentDetails.transactionId));
+                        }
+                    } catch (e) {
+                        console.log("Link PayOS đã hết hạn hoặc không tồn tại.");
+                    }
+                }
 
                 return res.status(200).json({
                     success: true,
