@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { X, AlertTriangle, ShieldCheck, HelpCircle, Landmark, Phone, User, MapPin, Building, CheckSquare, Square } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, AlertTriangle, ShieldCheck, HelpCircle, Landmark, Phone, User, MapPin, Building, CheckSquare, Square, PenTool } from 'lucide-react';
+import axios from 'axios';
 
 const CancelBookingModal = ({ isOpen, onClose, booking, onConfirmSubmit }) => {
     const [reason, setReason] = useState('');
@@ -11,17 +12,23 @@ const CancelBookingModal = ({ isOpen, onClose, booking, onConfirmSubmit }) => {
     const [isAgreed, setIsAgreed] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [validationError, setValidationError] = useState('');
+    const [banksList, setBanksList] = useState([]);
 
-    const POPULAR_BANKS = [
-        { id: 'Techcombank', name: 'Techcombank' },
-        { id: 'Vietcombank', name: 'Vietcombank' },
-        { id: 'Agribank', name: 'Agribank' },
-        { id: 'VietinBank', name: 'VietinBank' },
-        { id: 'BIDV', name: 'BIDV' },
-        { id: 'VPBank', name: 'VPBank' },
-        { id: 'MBBank', name: 'MBBank' },
-        { id: 'ACB', name: 'ACB' }
-    ];
+    // Lấy danh sách ngân hàng từ VietQR công khai
+    useEffect(() => {
+        if (!isOpen) return;
+        const fetchBanks = async () => {
+            try {
+                const response = await axios.get('https://api.vietqr.io/v2/banks');
+                if (response.data && response.data.code === '00') {
+                    setBanksList(response.data.data);
+                }
+            } catch (error) {
+                console.error("Không thể lấy danh sách ngân hàng công khai VietQR:", error);
+            }
+        };
+        fetchBanks();
+    }, [isOpen]);
 
     if (!isOpen || !booking) return null;
 
@@ -31,7 +38,6 @@ const CancelBookingModal = ({ isOpen, onClose, booking, onConfirmSubmit }) => {
     const hoursRemaining = (checkInDate - now) / (1000 * 60 * 60);
     const isEligibleTime = hoursRemaining >= 24;
 
-    // Đơn PENDING được hủy không cần xét thời gian, đơn PAID phải trước 24h
     const canCancel = isAllowedStatus && (booking.status === 'PAID' ? isEligibleTime : true);
 
     const cancelReasons = [
@@ -42,7 +48,6 @@ const CancelBookingModal = ({ isOpen, onClose, booking, onConfirmSubmit }) => {
         "Lý do khác"
     ];
 
-    // Hàm chuyển đổi tiếng Việt có dấu thành viết hoa không dấu chuẩn dữ liệu ngân hàng
     const removeVietnameseTones = (str) => {
         return str
             .normalize('NFD')
@@ -54,7 +59,7 @@ const CancelBookingModal = ({ isOpen, onClose, booking, onConfirmSubmit }) => {
 
     const handleAccountNumberChange = (e) => {
         const val = e.target.value;
-        if (/^\d*$/.test(val)) { // Chỉ chấp nhận ký tự số
+        if (/^\d*$/.test(val)) { 
             setAccountNumber(val);
         }
     };
@@ -66,9 +71,17 @@ const CancelBookingModal = ({ isOpen, onClose, booking, onConfirmSubmit }) => {
         if (!reason) return setValidationError('Vui lòng chọn lý do hủy đơn.');
         if (!isAgreed) return setValidationError('Bạn phải xác nhận cam đoan thông tin chính xác.');
 
-        const finalBankName = selectedBank === 'OTHER' ? customBankName : selectedBank;
-
+        // Tìm đối tượng ngân hàng được chọn để lấy Tên Ngắn (shortName) lưu vào db thay vì mã BIN
+        let finalBankName = '';
         if (booking.status === 'PAID') {
+            if (selectedBank === 'OTHER') {
+                if (!customBankName.trim()) return setValidationError('Vui lòng nhập tên ngân hàng của bạn.');
+                finalBankName = customBankName.trim().toUpperCase();
+            } else {
+                const currentBankObj = banksList.find(b => b.bin === selectedBank);
+                finalBankName = currentBankObj ? `${currentBankObj.customName || currentBankObj.shortName}` : selectedBank;
+            }
+
             if (!finalBankName || !accountNumber || !accountName) {
                 return setValidationError('Vui lòng nhập đầy đủ thông tin tài khoản ngân hàng để nhận tiền hoàn.');
             }
@@ -100,14 +113,13 @@ const CancelBookingModal = ({ isOpen, onClose, booking, onConfirmSubmit }) => {
             <motion.div 
                 initial={{ scale: 0.95, opacity: 0 }} 
                 animate={{ scale: 1, opacity: 1 }} 
-                exit={{ scale: 0.95, opacity: 0 }}
                 className="bg-white rounded-tr-[45px] rounded-bl-[45px] rounded-tl-xl rounded-br-xl w-full max-w-2xl overflow-hidden shadow-2xl relative border border-gray-100 my-8"
             >
                 {/* Header */}
                 <div className="bg-red-50 p-4 border-b border-red-100 flex justify-between items-center">
                     <div className="flex items-center gap-3 text-red-600">
                         <AlertTriangle size={26} className="shrink-0" />
-                        <h3 className="font-bold text-2sm">Xác nhận hủy đơn đặt chỗ trực tuyến</h3>
+                        <h3 className="font-bold text-sm md:text-base">Xác nhận hủy đơn đặt chỗ trực tuyến</h3>
                     </div>
                     <button onClick={onClose} className="p-1.5 rounded-full hover:bg-red-100 text-gray-400 hover:text-red-600 transition-colors">
                         <X size={22} />
@@ -115,30 +127,30 @@ const CancelBookingModal = ({ isOpen, onClose, booking, onConfirmSubmit }) => {
                 </div>
 
                 {/* Body */}
-                <div className="p-8 max-h-[calc(100vh-140px)] overflow-y-auto space-y-6">
+                <div className="p-6 md:p-8 max-h-[calc(100vh-140px)] overflow-y-auto space-y-6 ">
                     
-                    {/* KHỐI 1: Thông tin liên hệ của Nhà cung cấp (Owner) */}
-                    <div className="bg-emerald-50/60 rounded-tr-[45px] rounded-bl-[45px] rounded-tl-xl rounded-br-xl p-5 border border-emerald-100 space-y-3">
-                        <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
-                            <span>Thông tin đơn vị quản lý</span>
+                    {/* Thông tin đơn vị quản lý */}
+                    <div className="bg-emerald-50/60 rounded-tr-[45px] rounded-bl-[45px] rounded-tl-xl rounded-br-xl p-5 border border-emerald-100 space-y-2">
+                        <div className="text-emerald-800 font-bold text-sm border-b border-emerald-100/70 pb-1.5">
+                            Thông tin đơn vị quản lý
                         </div>
-                    <div className="space-y-4 gap-3 text-sm font-medium text-gray-600">
-                        <p className="flex items-center gap-1.5 py-2">
-                            <Landmark size={15} className="text-gray-400" />
-                            Tên dịch vụ: <span className="text-gray-900 font-bold">{booking.serviceId?.name || 'Đang cập nhật'}</span>
-                        </p>    
-                        <p className="flex items-center gap-1.5 py-2">
-                            <Building size={15} className="text-gray-400" />
-                            Tên cơ sở: <span className="text-gray-900 font-bold">{booking.ownerApplication?.businessName || 'Nhà cung cấp'}</span>
-                        </p>
-                        <p className="flex items-center gap-1.5 py-2">
-                            <Phone size={15} className="text-gray-400" />
-                            Hotline liên hệ: <span className="text-red-600 font-extrabold">{booking.ownerApplication?.phoneNumber || 'Chưa cập nhật'}</span>
-                        </p>
-                        <p className="flex items-start gap-1.5 py-2 md:col-span-2">
-                            <MapPin size={15} className="text-gray-400 mt-0.5 shrink-0" />
-                            <span>Địa điểm đăng ký: <span className="text-gray-900 font-semibold">{booking.ownerApplication?.businessAddress || 'Chưa cấu hình địa chỉ'}</span></span>
-                        </p>
+                        <div className="space-y-2 text-sm font-medium text-gray-600">
+                            <p className="flex items-center gap-2">
+                                <Landmark size={15} className="text-gray-400 shrink-0" />
+                                Tên dịch vụ: <span className="text-gray-900 font-bold">{booking.serviceId?.name || 'Đang cập nhật'}</span>
+                            </p>    
+                            <p className="flex items-center gap-2">
+                                <Building size={15} className="text-gray-400 shrink-0" />
+                                Tên cơ sở: <span className="text-gray-900 font-bold">{booking.ownerApplication?.businessName || 'Nhà cung cấp'}</span>
+                            </p>
+                            <p className="flex items-center gap-2">
+                                <Phone size={15} className="text-gray-400 shrink-0" />
+                                Hotline liên hệ: <span className="text-red-600 font-extrabold">{booking.ownerApplication?.phoneNumber || 'Chưa cập nhật'}</span>
+                            </p>
+                            <p className="flex items-start gap-2">
+                                <MapPin size={15} className="text-gray-400 mt-0.5 shrink-0" />
+                                <span>Địa điểm đăng ký: <span className="text-gray-900 font-semibold">{booking.ownerApplication?.businessAddress || 'Chưa cấu hình địa chỉ'}</span></span>
+                            </p>
                         </div>
                     </div>
 
@@ -159,7 +171,8 @@ const CancelBookingModal = ({ isOpen, onClose, booking, onConfirmSubmit }) => {
                             <div className="p-5 bg-red-50 text-red-700 rounded-2xl border border-red-200 text-sm font-medium text-left leading-relaxed">
                                 ⚠️ <strong>Từ chối hủy trực tuyến:</strong> Đơn hàng đã thanh toán và thời gian đến thời điểm khởi hành/nhận phòng còn ít hơn 24 giờ. Hệ thống không thể xử lý hoàn tiền tự động. Vui lòng gọi trực tiếp hotline của Owner ở phía trên để được giải quyết nội bộ.
                             </div>
-                            <a href={`tel:${booking.ownerApplicationId?.phoneNumber || '19001234'}`} className="inline-flex items-center gap-2 px-8 py-3 bg-[#004D40] text-white font-bold rounded-xl text-sm shadow-md hover:bg-[#002B24] transition-all">
+                            {/* FIX LỖI: Đồng bộ hóa biến phoneNumber của nhà cung cấp */}
+                            <a href={`tel:${booking.ownerApplication?.phoneNumber || '19001234'}`} className="inline-flex items-center gap-2 px-8 py-3 bg-[#004D40] text-white font-bold rounded-xl text-sm shadow-md hover:bg-[#002B24] transition-all">
                                 <Phone size={16} /> Gọi hỗ trợ khẩn cấp
                             </a>
                         </div>
@@ -177,7 +190,7 @@ const CancelBookingModal = ({ isOpen, onClose, booking, onConfirmSubmit }) => {
                                 <select 
                                     value={reason} 
                                     onChange={(e) => setReason(e.target.value)}
-                                    className="w-full border border-gray-200 rounded-tl-xl rounded-br-xl px-3 py-3 text-sm font-semibold focus:outline-none focus:border-red-500 bg-white"
+                                    className="w-full border border-gray-200 rounded-tl-xl rounded-br-xl px-3 py-3 text-sm font-bold text-gray-800 focus:outline-none focus:border-red-500 bg-white"
                                     required
                                 >
                                     <option value="">-- Chọn nguyên nhân phù hợp --</option>
@@ -195,7 +208,7 @@ const CancelBookingModal = ({ isOpen, onClose, booking, onConfirmSubmit }) => {
                                         <span>Tài khoản chỉ định nhận tiền hoàn lại</span>
                                     </div>
 
-                                    {/* Dropdown Ngân hàng */}
+                                    {/* Dropdown Ngân hàng cải tiến UI gọn đẹp */}
                                     <div className="space-y-1">
                                         <div className="relative">
                                             <Landmark size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -205,60 +218,72 @@ const CancelBookingModal = ({ isOpen, onClose, booking, onConfirmSubmit }) => {
                                                     setSelectedBank(e.target.value);
                                                     if (e.target.value !== 'OTHER') setCustomBankName('');
                                                 }}
-                                                className="w-full bg-white border border-gray-200 rounded-tl-xl rounded-br-xl pl-11 pr-4 py-2.5 text-sm font-semibold focus:outline-none focus:border-blue-500"
+                                                className="w-full bg-white border border-gray-200 rounded-tl-xl rounded-br-xl pl-11 pr-4 py-2.5 text-sm font-bold text-gray-800 focus:outline-none focus:border-blue-500 shadow-sm"
                                                 required={booking.status === 'PAID'}
                                             >
-                                                <option value="">-- Danh sách ngân hàng hệ thống --</option>
-                                                {POPULAR_BANKS.map((b) => (
-                                                    <option key={b.id} value={b.name}>{b.name}</option>
+                                                <option value="">-- Chọn ngân hàng thụ hưởng --</option>
+                                                {banksList.map((b) => (
+                                                    <option key={b.bin} value={b.bin}>
+                                                        {b.shortName ? `${b.shortName} (${b.customName || b.name.split('(')[0].trim()})` : b.name}
+                                                    </option>
                                                 ))}
-                                                <option value="OTHER">Ngân hàng khác (Tự nhập tay)</option>
+                                                <option value="OTHER" className="text-blue-600 font-bold">✍️ Ngân hàng khác (Tự nhập tay)...</option>
                                             </select>
                                         </div>
                                     </div>
 
-                                    {selectedBank === 'OTHER' && (
-                                        <div className="space-y-1">
-                                            <input 
-                                                type="text"
-                                                value={customBankName}
-                                                onChange={(e) => setCustomBankName(e.target.value)}
-                                                className="w-full bg-white border border-gray-200 rounded-tl-xl rounded-br-xl px-4 py-2.5 text-sm font-medium focus:outline-none focus:border-blue-500"
-                                                placeholder="Nhập chính xác tên Ngân hàng Thương mại"
-                                                required={booking.status === 'PAID' && selectedBank === 'OTHER'}
-                                            />
-                                        </div>
-                                    )}
+                                    {/* Ô NHẬP TAY KHI CHỌN "NGÂN HÀNG KHÁC" */}
+                                    <AnimatePresence>
+                                        {selectedBank === 'OTHER' && (
+                                            <motion.div 
+                                                initial={{ height: 0, opacity: 0 }}
+                                                animate={{ height: 'auto', opacity: 1 }}
+                                                exit={{ height: 0, opacity: 0 }}
+                                                className="space-y-1 overflow-hidden"
+                                            >
+                                                <div className="relative">
+                                                    <PenTool size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-orange-400" />
+                                                    <input 
+                                                        type="text"
+                                                        value={customBankName}
+                                                        onChange={(e) => setCustomBankName(e.target.value)}
+                                                        className="w-full bg-white border border-orange-200 rounded-tl-xl rounded-br-xl pl-11 pr-4 py-2.5 text-sm font-bold text-gray-800 focus:outline-none focus:border-orange-500 placeholder:font-normal"
+                                                        placeholder="Nhập tên ngân hàng của bạn (Ví dụ: Agribank, HSBC...)"
+                                                        required={selectedBank === 'OTHER'}
+                                                    />
+                                                </div>
+                                            </motion.div>
+                                        )}
+                                    </AnimatePresence>
 
-                                    {/* Số tài khoản - Chỉ cho nhập số */}
+                                    {/* Số tài khoản */}
                                     <div className="space-y-1">
                                         <input 
                                             type="text"
                                             inputMode="numeric"
                                             value={accountNumber}
                                             onChange={handleAccountNumberChange}
-                                            className="w-full bg-white border border-gray-200 rounded-tl-xl rounded-br-xl px-4 py-2.5 text-sm font-mono font-bold focus:outline-none focus:border-blue-500"
-                                            placeholder="Nhập số tài khoản"
+                                            className="w-full bg-white border border-gray-200 rounded-tl-xl rounded-br-xl px-4 py-2.5 text-sm font-mono font-bold text-gray-800 focus:outline-none focus:border-blue-500"
+                                            placeholder="Nhập số tài khoản ngân hàng"
                                             required={booking.status === 'PAID'}
                                         />
                                     </div>
 
-                                    {/* Tên chủ tài khoản - Tự động IN HOA không dấu */}
+                                    {/* Tên chủ tài khoản */}
                                     <div className="space-y-1">
                                         <input 
                                             type="text"
                                             value={accountName}
                                             onChange={(e) => setAccountName(removeVietnameseTones(e.target.value))}
-                                            className="w-full bg-white border border-gray-200 rounded-tl-xl rounded-br-xl rounded-br-xl px-4 py-2.5 text-sm font-bold tracking-wider focus:outline-none focus:border-blue-500 placeholder:normal-case"
-                                            placeholder="TÊN CHỦ TÀI KHOẢN"
+                                            className="w-full bg-white border border-gray-200 rounded-tl-xl rounded-br-xl px-4 py-2.5 text-sm font-bold tracking-wider font-mono text-gray-800 focus:outline-none focus:border-blue-500 placeholder:normal-case placeholder:font-sans placeholder:font-normal"
+                                            placeholder="Tên chủ tài khoản viết hoa không dấu (Ví dụ: NGUYEN VAN A)"
                                             required={booking.status === 'PAID'}
                                         />
                                     </div>
 
                                     <p className="text-[11px] text-blue-800 font-medium leading-relaxed bg-blue-100/60 p-3 rounded-xl">
-                                        💡 <strong>Quy trình bảo mật:</strong> Đối với đơn đã trả tiền, chỗ của bạn sẽ tạm giữ an toàn. Hệ thống gửi lệnh chờ duyệt đến nhà xe/chủ hộ. Tiền mặt và vé sẽ được hoàn trả đầy đủ sau khi Owner xác nhận lệnh chuyển tiền thành công.
+                                        💡 <strong>Quy trình hoàn tiền:</strong> Lệnh hoàn trả sẽ được chuyển khoản thủ công bởi Admin/Kế toán dựa trên thông tin bạn cung cấp tại đây sau khi đơn hủy được phê duyệt.
                                     </p>
-                                    
                                 </div>
                             )}
 
@@ -285,7 +310,7 @@ const CancelBookingModal = ({ isOpen, onClose, booking, onConfirmSubmit }) => {
                                     
                                     <div className="bg-white p-3 rounded-lg border border-red-100">
                                         <p className="font-bold text-red-700 mb-1">⚠️ Hủy trước 1-3 ngày:</p>
-                                        <p className="text-red-600">Hoàn tiền <span className="font-extrabold text-lg text-orange-600">50%</span> (phạt 50% vì làm lỡ cơ hội bán của chủ dịch vụ)</p>
+                                        <p className="text-red-600">Hoàn tiền <span className="font-extrabold text-lg text-orange-600">50%</span> (áp dụng phạt hủy muộn)</p>
                                     </div>
                                     
                                     <div className="bg-white p-3 rounded-lg border border-red-100">
@@ -319,14 +344,14 @@ const CancelBookingModal = ({ isOpen, onClose, booking, onConfirmSubmit }) => {
                                 <button 
                                     type="button" 
                                     onClick={onClose} 
-                                    className="flex-1 py-3 border border-gray-200 text-gray-600 font-bold rounded-xl text-sm hover:bg-gray-50 active:scale-95 transition-transform"
+                                    className="flex-1 py-3 border border-gray-200 text-gray-600 font-bold rounded-xl text-sm hover:bg-gray-50 transition-all"
                                 >
                                     Quay lại
                                 </button>
                                 <button 
                                     type="submit" 
                                     disabled={!reason || !isAgreed || submitting}
-                                    className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl text-sm shadow-md disabled:opacity-40 active:scale-95 transition-all"
+                                    className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl text-sm shadow-md disabled:opacity-40 transition-all"
                                 >
                                     {submitting ? 'Đang gửi...' : 'Xác nhận hủy đơn'}
                                 </button>

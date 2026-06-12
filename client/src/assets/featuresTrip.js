@@ -6,16 +6,17 @@ export const FEATURES_CONFIG = {
         { value: "LUXURY", label: "Cao cấp" },
         { value: "MID_RANGE", label: "Tầm trung" },
         { value: "BUDGET", label: "Tiết kiệm" },
+        { value: "HOMESTAY", label: "Homestay" },
       ],
     },
 
     {
       title: "Vị trí & Không gian",
       items: [
-        { value: "BEACHFRONT", label: "Sát biển / Gần biển" },
-        { value: "CITY_CENTER", label: "Trung tâm thành phố" },
-        { value: "MOUNTAIN_AREA", label: "Vùng núi / Ngoại ô" },
-        { value: "RIVER_LAKE_SIDE", label: "Ven sông / Ven hồ" }
+        { value: "BEACHFRONT", label: "Giáp biển" },
+        { value: "RIVERSIDE", label: "View sông" },
+        { value: "CITY_CENTER", label: "Trung tâm" },
+        { value: "MOUNTAIN_VIEW", label: "View núi" },
       ],
     },
 
@@ -34,14 +35,12 @@ export const FEATURES_CONFIG = {
     {
       title: "Loại ẩm thực",
       items: [
-        { value: "LOCAL_FOOD", label: "Đặc sản địa phương" },
+        { value: "LOCAL_FOOD", label: "Đặc sản" },
         { value: "SEAFOOD", label: "Hải sản" },
-        { value: "STREET_FOOD", label: "Ẩm thực đường phố" },
+        { value: "STREET_FOOD", label: "Đường phố" },
         { value: "VEGAN", label: "Thuần chay" },
         { value: "WESTERN", label: "Món Âu" },
         { value: "ASIAN", label: "Món Á" },
-        { value: "BBQ", label: "BBQ" },
-        { value: "HOTPOT", label: "Lẩu" },
       ],
     },
   ],
@@ -55,6 +54,7 @@ export const FEATURES_CONFIG = {
         { value: "ENTERTAINMENT", label: "Giải trí" },
         { value: "WATER_SPORTS", label: "Thể thao nước" },
         { value: "SIGHTSEEING", label: "Tham quan" },
+        { value: "NIGHTLIFE", label: "Về đêm" },
       ],
     },
   ],

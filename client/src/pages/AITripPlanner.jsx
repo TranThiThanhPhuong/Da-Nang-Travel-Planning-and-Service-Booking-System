@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import TripPreview from "./TripPreview";
 import { FEATURES_CONFIG } from "../assets/featuresTrip.js";
+import FeedbackModal from "../components/FeedbackModal.jsx";
 
 const AITripPlanner = () => {
   const { getToken } = useAuth();
@@ -25,6 +26,15 @@ const AITripPlanner = () => {
   const chatEndRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [generatedTrip, setGeneratedTrip] = useState(null);
+  const [wishlistIds, setWishlistIds] = useState([]);
+
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+    onConfirm: null,
+  });
 
   const [formData, setFormData] = useState({
     days: "",
@@ -34,14 +44,28 @@ const AITripPlanner = () => {
     peopleCount: "",
   });
 
-  const [aiStatus, setAiStatus] = useState(`Chào ${user?.firstName || "bạn"} 👋 Mình là D-PULSE AI. Hãy điền thông tin để bắt đầu nhé!`);
+  const [aiStatus, setAiStatus] = useState(
+    `Chào ${user?.firstName || "bạn"} 👋 Mình là D-PULSE AI. Hãy điền thông tin để bắt đầu nhé!`,
+  );
+
+  const showFeedback = (type, title, message, onConfirm = null) => {
+    setModalConfig({ isOpen: true, type, title, message, onConfirm });
+  };
+
+  const closeFeedback = () => {
+    setModalConfig((prev) => ({ ...prev, isOpen: false }));
+  };
 
   useEffect(() => {
     const savedForm = localStorage.getItem("lastFormData");
     if (savedForm) setFormData(JSON.parse(savedForm));
-    
+    const savedTrip = localStorage.getItem("currentGeneratedTrip");
+    if (savedTrip) {
+      setGeneratedTrip(JSON.parse(savedTrip));
+    }
+    fetchUserWishlist();
   }, []);
-  
+
   useEffect(() => {
     localStorage.setItem("lastFormData", JSON.stringify(formData));
   }, [formData]);
@@ -68,8 +92,15 @@ const AITripPlanner = () => {
     setFormData((prev) => {
       const groupValues = groupItems.map((item) => item.value);
       const isAlreadySelected = prev.travelStyle.includes(value);
-      const filteredStyles = prev.travelStyle.filter((tag) => !groupValues.includes(tag));
-      return { ...prev, travelStyle: isAlreadySelected ? filteredStyles : [...filteredStyles, value], };
+      const filteredStyles = prev.travelStyle.filter(
+        (tag) => !groupValues.includes(tag),
+      );
+      return {
+        ...prev,
+        travelStyle: isAlreadySelected
+          ? filteredStyles
+          : [...filteredStyles, value],
+      };
     });
   };
 
@@ -89,9 +120,57 @@ const AITripPlanner = () => {
     return Number(value).toLocaleString("vi-VN");
   };
 
+  const fetchUserWishlist = async () => {
+    try {
+      const token = await getToken();
+      const response = await axios.get('/api/wishlists/my-wishlists', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setWishlistIds(response.data.data.map(item => item._id));
+      }
+    } catch (err) {
+      console.error("Lỗi đồng bộ danh sách yêu thích:", err);
+    }
+  };
+
+  const handleToggleWishlist = async (serviceId) => {
+    try {
+      const token = await getToken();
+      
+      const isFav = wishlistIds.includes(serviceId);
+      if (isFav) {
+        setWishlistIds(prev => prev.filter(id => id !== serviceId));
+      } else {
+        setWishlistIds(prev => [...prev, serviceId]);
+      }
+
+      await axios.post('/api/wishlists/toggle', 
+        { serviceId }, 
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch (error) {
+      console.error('Lỗi khi thao tác yêu thích:', error);
+      fetchUserWishlist();
+      setModalConfig({
+        isOpen: true,
+        type: 'error',
+        title: 'Thất bại',
+        message: 'Không thể cập nhật danh sách yêu thích. Hãy thử lại!'
+      });
+    }
+  };
+
+  const closeModal = () => setModalConfig(prev => ({ ...prev, isOpen: false }));
+
   const handleGenerateTrip = async () => {
     if (!formData.days || !formData.startDate) {
-      alert("Vui lòng nhập số ngày và ngày bắt đầu");
+      setModalConfig({
+        isOpen: true,
+        type: 'warning',
+        title: 'Thiếu thông tin',
+        message: 'Vui lòng nhập đầy đủ số ngày và ngày bắt đầu hành trình của bạn nhé.'
+      });
       return;
     }
     setLoading(true);
@@ -99,49 +178,61 @@ const AITripPlanner = () => {
     try {
       const token = await getToken();
       const response = await axios.post("/api/trips/generate", formData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: { Authorization: `Bearer ${token}` },
       });
       if (response.data.success) {
-        setGeneratedTrip(response.data.data);
-        setAiStatus("🎉 Hoàn thành! Lịch trình của bạn đã sẵn sàng ở bên phải.");
+        const tripData = response.data.data;
+        setGeneratedTrip(tripData);
+        localStorage.setItem("currentGeneratedTrip", JSON.stringify(tripData));
+        setAiStatus("✅ Lịch trình đã được tạo thành công!");
       }
     } catch (error) {
-      setAiStatus("❌ Rất tiếc, đã có lỗi xảy ra. Vui lòng thử lại sau.");
+      setAiStatus("❌ Rất tiếc, đã có lỗi xảy ra khi tạo lịch trình. Vui lòng thử lại.");
     } finally {
       setLoading(false);
     }
   };
 
   const handleSaveTrip = async () => {
-    if (!generatedTrip) {
-      return;
-    }
-    try { 
-      setLoading(true);
-      setAiStatus("💾 Đang lưu lịch trình...");
+    if (!generatedTrip) return;
+    
+    setModalConfig({
+      isOpen: true,
+      type: 'loading',
+      title: 'Đang lưu trữ',
+      message: '💾 Đang lưu lịch trình vào hồ sơ cá nhân của bạn...'
+    });
+    setLoading(true);
+
+    try {
       const token = await getToken();
       const response = await axios.put(
         `/api/trips/${generatedTrip._id}/advance-status`,
         {},
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
+        { headers: { Authorization: `Bearer ${token}` } }
       );
       if (response.data.success) {
-        setAiStatus("✅ Lịch trình đã được lưu thành công");
         localStorage.removeItem("lastFormData");
-        navigate("/account?tab=itineraries");
+        localStorage.removeItem("currentGeneratedTrip");
+
+        setModalConfig({
+          isOpen: true,
+          type: 'success',
+          title: 'Thành công',
+          message: '✅ Lịch trình đã được lưu vào hệ thống.',
+        });
+        setTimeout(() => {
+          closeModal();
+          navigate("/account?tab=itineraries");
+        }, 2000);
       }
     } catch (error) {
-      console.error("❌ Lỗi khi lưu lịch trình:", error);
-      alert(
-        error.response?.data?.message ||
-          "Có lỗi xảy ra trong quá trình lưu lịch trình.",
-      );
+      setModalConfig({
+        isOpen: true,
+        type: 'error',
+        title: 'Lưu thất bại',
+        message: error.response?.data?.message || 'Có lỗi xảy ra trong quá trình lưu lịch trình.'
+      });
     } finally {
       setLoading(false);
     }
@@ -149,27 +240,60 @@ const AITripPlanner = () => {
 
   const handleCancel = async () => {
     if (!generatedTrip || !generatedTrip._id) {
-      alert("Không thể xóa - lịch trình chưa được tạo");
+      setModalConfig({
+        isOpen: true,
+        type: 'error',
+        title: 'Lỗi tác vụ',
+        message: 'Không thể xóa - lịch trình chưa được khởi tạo.'
+      });
       return;
     }
-    if (!confirm("Bạn có chắc muốn bỏ lịch trình này?")) return;
-    try {
-      setLoading(true);
-      const token = await getToken();
-      const response = await axios.delete(`/api/trips/${generatedTrip._id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (response.data.success) {
-        alert("✅ Đã xóa lịch trình");
-        setGeneratedTrip(null);
-        setAiStatus(`Chào ${user?.firstName || "bạn"} 👋 Mình là D-PULSE AI. Hãy điền thông tin để bắt đầu nhé!`);
+
+    setModalConfig({
+      isOpen: true,
+      type: 'confirm',
+      title: 'Xác nhận hủy',
+      message: 'Bạn có chắc chắn muốn bỏ hoàn toàn lịch trình này không? Hành động này không thể hoàn tác.',
+      confirmText: 'Đồng ý bỏ',
+      cancelText: 'Giữ lại',
+      onConfirm: async () => {
+        closeModal();
+        setModalConfig({
+          isOpen: true,
+          type: 'loading',
+          title: 'Đang xóa',
+          message: 'Hệ thống đang tiến hành dọn dẹp dữ liệu chuyến đi...'
+        });
+        
+        try {
+          setLoading(true);
+          const token = await getToken();
+          const response = await axios.delete(`/api/trips/${generatedTrip._id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          if (response.data.success) {
+            setGeneratedTrip(null);
+            localStorage.removeItem("currentGeneratedTrip");
+            
+            setModalConfig({
+              isOpen: true,
+              type: 'success',
+              title: 'Đã hủy',
+              message: 'Đã dọn dẹp thành công lịch trình cũ.'
+            });
+          }
+        } catch (error) {
+          setModalConfig({
+            isOpen: true,
+            type: 'error',
+            title: 'Hủy thất bại',
+            message: error.response?.data?.message || 'Có lỗi xảy ra khi thực hiện lệnh xóa.'
+          });
+        } finally {
+          setLoading(false);
+        }
       }
-    } catch (error) {
-      console.error("Delete error:", error);
-      alert(error.response?.data?.message || "Có lỗi xảy ra");
-    } finally {
-      setLoading(false);
-    }
+    });
   };
 
   const inputStyle =
@@ -197,7 +321,7 @@ const AITripPlanner = () => {
         {/* CHAT */}
         <div className="p-5 bg-[#FAFAFA] border-b border-gray-50">
           <motion.div
-            key={aiStatus} 
+            key={aiStatus}
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
             className="bg-white p-4 rounded-tr-2xl rounded-bl-2xl border border-[#E0F2F1] shadow-sm text-sm text-[#004D40] leading-relaxed"
@@ -218,10 +342,10 @@ const AITripPlanner = () => {
               <input
                 type="number"
                 min="1"
-                max="7"
+                max="5"
                 value={formData.days}
                 onChange={(e) => handleInputChange("days", e.target.value)}
-                placeholder="≤ 7 ngày"
+                placeholder="≤ 5 ngày"
                 className={inputStyle}
               />
             </div>
@@ -421,7 +545,13 @@ const AITripPlanner = () => {
       {/* RIGHT PANEL */}
       <div className="flex-1 overflow-y-auto bg-[#F7FAF9]">
         {generatedTrip ? (
-          <TripPreview trip={generatedTrip} onSave={handleSaveTrip} onCancel={handleCancel}/>
+          <TripPreview
+            trip={generatedTrip}
+            wishlistIds={wishlistIds}
+            onSave={handleSaveTrip}
+            onCancel={handleCancel}
+            onToggleWishlist={handleToggleWishlist}
+          />
         ) : (
           <div className="h-full flex items-center justify-center p-10">
             <motion.div
@@ -449,6 +579,16 @@ const AITripPlanner = () => {
           </div>
         )}
       </div>
+      <FeedbackModal
+        isOpen={modalConfig.isOpen}
+        onClose={closeModal}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onConfirm={modalConfig.onConfirm}
+        confirmText={modalConfig.confirmText}
+        cancelText={modalConfig.cancelText}
+      />
     </div>
   );
 };

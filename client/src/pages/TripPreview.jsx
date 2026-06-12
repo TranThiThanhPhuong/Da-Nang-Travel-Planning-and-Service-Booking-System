@@ -12,10 +12,12 @@ import {
   MapPin,
   Star,
   Users,
-  Trash2
+  Trash2,
+  Heart,
+  Info
 } from "lucide-react";
 
-const TripPreview = ({ trip, onSave, onCancel }) => {
+const TripPreview = ({ trip, onSave, onCancel, wishlistIds = [], onToggleWishlist }) => {
   const formatDate = (date) => new Date(date).toLocaleDateString("vi-VN", { day: "numeric", month: "long", year: "numeric" });
   const formatCurrency = (amount) => new Intl.NumberFormat("vi-VN").format(amount);
 
@@ -57,42 +59,74 @@ const TripPreview = ({ trip, onSave, onCancel }) => {
           </div>
         ))}
       </div>
+
       {/* 1. HOTELS SECTION (2 Cards per row) */}
       <section className="mb-16">
-        <h3 className="flex items-center gap-2.5 text-2xl font-bold font-cormorant text-[#004D40] mb-8"><Hotel size={24} /> Chỗ ở gợi ý</h3>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <h3 className="flex items-center gap-2.5 text-2xl font-bold font-cormorant text-[#004D40]"><Hotel size={24} />Gợi ý chỗ ở</h3>
+          
+          {/* Nhắc nhở thông minh cho khách hàng về việc mất dữ liệu chỗ ở */}
+          <div className="flex items-center gap-2 text-xs text-amber-600 bg-amber-50/80 px-4 py-2.5 rounded-xl border border-amber-100 max-w-xl font-medium">
+            <Info size={14} className="shrink-0 text-[#FFAB40]" />
+            <span>Mẹo: Hãy bấm <Heart size={12} className="inline fill-amber-500 text-amber-500" /> yêu thích khách sạn bạn ưng ý.</span>
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {trip.suggestedHotels?.map((hotel) => (
-            <Link to={`/services/${hotel._id}`} key={hotel._id} className="group block">
-              <motion.div whileHover={{ x: 5 }} className={cardStyle}>
-                <div className="w-1/3 min-w-[140px] relative overflow-hidden">
-                  <img src={hotel.thumbnail} alt={hotel.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" />
-                </div>
-                <div className="w-2/3 p-5 flex flex-col justify-between min-w-0">
-                  <div>
-                    <div className="flex justify-between items-start gap-2 mb-1">
-                      <h4 title={hotel.name} className="font-bold text-[#004D40] text-base truncate flex-1">{hotel.name}</h4>
-                      <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 rounded-md flex-shrink-0">
-                        <Star size={12} className="fill-amber-400 text-amber-400" />
-                        <span className="text-[11px] font-bold text-amber-600">{hotel.ratingStats?.averageRating || 5.0}</span>
+          {trip.suggestedHotels?.map((hotel) => {
+            const isFavorite = wishlistIds.includes(hotel._id);
+
+            return (
+              <div key={hotel._id} className="group relative">
+                <motion.div whileHover={{ y: -4 }} className={cardStyle}>
+                  {/* Nút yêu thích (Trái tim) đặt ở góc ảnh */}
+                  <button 
+                    onClick={() => onToggleWishlist(hotel._id)}
+                    className="absolute top-3 left-3 z-10 w-9 h-9 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 hover:bg-white"
+                  >
+                    <Heart 
+                      size={18} 
+                      className={`transition-colors ${isFavorite ? "fill-red-500 text-red-500" : "text-gray-400 hover:text-red-500"}`} 
+                    />
+                  </button>
+                  <div className="w-1/3 min-w-[140px] relative overflow-hidden bg-gray-100">
+                    <img src={hotel.thumbnail} alt={hotel.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+                  </div>
+                  <div className="w-2/3 p-5 flex flex-col justify-between min-w-0">
+                    <div>
+                      <div className="flex justify-between items-start gap-2 mb-1">
+                        <h4 title={hotel.name} className="font-bold text-[#004D40] text-base truncate flex-1">{hotel.name}</h4>
+                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 rounded-md flex-shrink-0">
+                          <Star size={12} className="fill-amber-400 text-amber-400" />
+                          <span className="text-[11px] font-bold text-amber-600">{hotel.ratingStats?.averageRating || 5.0}</span>
+                        </div>
                       </div>
+                      <p title={hotel.address} className="text-[11px] text-gray-400 flex items-center gap-1 truncate mb-2"><MapPin size={12} /> {getCleanAddress(hotel.address)}</p>
+                      <p title={hotel.description} className="text-[11px] text-gray-500 italic line-clamp-2 bg-gray-50 p-2 rounded-lg">“{hotel.description || "Không gian nghỉ dưỡng tuyệt vời."}”</p>
                     </div>
-                    <p title={hotel.address} className="text-[11px] text-gray-400 flex items-center gap-1 truncate mb-2"><MapPin size={12} /> {getCleanAddress(hotel.address)}</p>
-                    <p title={hotel.description} className="text-[11px] text-gray-500 italic line-clamp-2 bg-gray-50 p-2 rounded-lg">“{hotel.description || "Không gian nghỉ dưỡng tuyệt vời."}”</p>
+                    
+                    <div className="pt-3 mt-2 border-t border-gray-50 flex items-center justify-between">
+                      <span className="text-base font-black text-[#004D40]">{formatCurrency(hotel.finalPrice || hotel.price)}đ</span>
+                      
+                      {/* Chỉ bọc link điều hướng ở nút Xem chi tiết */}
+                      <Link 
+                        to={`/services/${hotel._id}`} 
+                        className="w-8 h-8 bg-[#E0F2F1] text-[#004D40] rounded-full flex items-center justify-center hover:bg-[#004D40] hover:text-white transition-all transform hover:rotate-45"
+                      >
+                        <ExternalLink size={14} />
+                      </Link>
+                    </div>
                   </div>
-                  <div className="pt-3 mt-2 border-t border-gray-50 flex items-center justify-between">
-                    <span className="text-base font-black text-[#004D40]">{formatCurrency(hotel.finalPrice || hotel.price)}đ</span>
-                    <div className="w-8 h-8 bg-[#E0F2F1] text-[#004D40] rounded-full flex items-center justify-center group-hover:bg-[#004D40] group-hover:text-white transition-all transform group-hover:rotate-45"><ExternalLink size={14} /></div>
-                  </div>
-                </div>
-              </motion.div>
-            </Link>
-          ))}
+                </motion.div>
+              </div>
+            );
+          })}
         </div>
       </section>
 
       {/* 2. ITINERARY SECTION */}
       <section>
-        <h3 className="flex items-center gap-3 text-2xl font-bold font-cormorant text-[#004D40] mb-12"><Clock size={26} /> Lịch trình trải nghiệm</h3>
+        <h3 className="flex items-center gap-3 text-2xl font-bold font-cormorant text-[#004D40] mb-12"><Clock size={26} /> Lịch trình trải nghiệm(Lưu lại để chỉnh sửa)</h3>
         <div className="relative border-l-2 border-dashed border-gray-200 ml-4 md:ml-6 space-y-12">
           {trip.itinerary?.map((day, dayIdx) => (
             <div key={dayIdx} className="relative pl-8 md:pl-12">

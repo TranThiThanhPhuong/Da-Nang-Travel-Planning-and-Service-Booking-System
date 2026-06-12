@@ -3,34 +3,38 @@ import { io } from 'socket.io-client';
 const SOCKET_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 let socket = null;
 
-export const connectSocket = (token) => {
-    if (!token) return null;
+export const connectSocket = (getTokenFn) => {
+    if (!getTokenFn) return null;
 
     if (!socket) {
         socket = io(SOCKET_URL, {
-            auth: { token },
+            // Mỗi lần reconnect, Socket.io sẽ tự động chạy hàm này để lấy token mới nhất từ Clerk
+            auth: async (cb) => {
+                const token = await getTokenFn();
+                cb({ token });
+            },
             transports: ['websocket'],
             autoConnect: true,
-            reconnection: true,             // Bật tự động kết nối lại
-            reconnectionAttempts: 5,        // Thử lại tối đa 5 lần nếu lỗi
-            reconnectionDelay: 2000         // Thời gian chờ giữa các lần thử (2 giây)
+            reconnection: true,             
+            reconnectionAttempts: 5,        
+            reconnectionDelay: 2000         
         });
 
         socket.on('connect', () => {
             console.log('🔌 [Socket] Kết nối thành công với ID:', socket.id);
         });
 
-        socket.on('connect_error', (err) => {
+        socket.on('connect_error', async (err) => {
             console.error('❌ [Socket] Lỗi kết nối phía Client:', err.message);
             
-            // Nếu lỗi do Token không hợp lệ, tạm thời ngắt kết nối để đợi cập nhật token mới
+            // Nếu Server từ chối do Token lỗi/hết hạn, ép buộc ngắt và kết nối lại bằng Token mới
             if (err.message.includes('Authentication error')) {
+                console.log('🔄 Đang ép cấu hình bắt tay lại bằng Token mới...');
                 socket.disconnect();
+                socket.connect(); 
             }
         });
     } else {
-        // Nếu socket đã tồn tại nhưng trước đó bị ngắt kết nối, cập nhật token và re-connect
-        socket.auth.token = token;
         if (!socket.connected) {
             socket.connect();
         }
@@ -38,7 +42,6 @@ export const connectSocket = (token) => {
     return socket;
 };
 
-// Hàm cực kỳ quan trọng để cập nhật token động mà không cần F5 trang
 export const updateSocketToken = (token) => {
     if (socket && token) {
         socket.auth.token = token;

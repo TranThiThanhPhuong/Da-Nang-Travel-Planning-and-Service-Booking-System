@@ -470,7 +470,7 @@ export const reviewService = async (req, res, next) => {
     if (!service) {
       throw new ApiError(404, "Không tìm thấy dịch vụ");
     }
-
+    // Cập nhật trạng thái và lý do
     service.approvalStatus = status;
     if (adminNotes) {
       service.adminNotes = adminNotes;
@@ -478,6 +478,7 @@ export const reviewService = async (req, res, next) => {
 
     await service.save();
 
+    // 🔔 TÍNH NĂNG BỔ SUNG: Bắn thông báo về cho Owner
     if (service.ownerId) {
       const isApproved = status === 'APPROVED';
       await sendNotification({
@@ -488,7 +489,7 @@ export const reviewService = async (req, res, next) => {
           ? `Chúc mừng! Dịch vụ "${service.name}" của bạn đã được hiển thị công khai trên hệ thống.`
           : `Dịch vụ "${service.name}" của bạn đã bị từ chối. Lý do: ${adminNotes || 'Vui lòng kiểm tra lại hình ảnh hoặc nội dung.'}`,
         category: 'SYSTEM_ALERT',
-        onClickUrl: '/owner/services'
+        onClickUrl: '/owner/list-service'
       });
     }
 

@@ -135,6 +135,12 @@ app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', message: 'Server is running' });
 });
 
+app.get('/', (req, res) => {
+    res.json({
+        message: "Da Nang Travel API is running 🚀"
+    });
+});
+
 // Bắt lỗi 404 Not Found
 app.all('*', (req, res, next) => {
     next(new ApiError(404, `Không tìm thấy đường dẫn ${req.originalUrl} trên máy chủ!`));

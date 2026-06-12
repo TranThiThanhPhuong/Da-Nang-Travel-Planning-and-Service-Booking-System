@@ -61,13 +61,9 @@ const NotificationDropdown = ({ userRole = "USER" }) => {
     let activeSocket = null;
 
     const initSocketConnection = async () => {
-      const token = await getToken();
-      if (!token) return;
-
-      // 1. Khởi tạo hoặc lấy socket hiện tại
       activeSocket = getSocket();
       if (!activeSocket) {
-        activeSocket = connectSocket(token);
+        activeSocket = connectSocket(getToken); 
       } else {
         updateSocketToken(token);
       }

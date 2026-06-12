@@ -5,6 +5,7 @@ import { useAuth } from "@clerk/clerk-react";
 import { adminService } from "../../services/adminService";
 import EmptyState from "../common/Empty";
 import Pagination from "../common/Pagination";
+import FeedbackModal from "../common/FeedbackModal";
 
 const UserManagement = () => {
   const { getToken } = useAuth();
@@ -26,6 +27,16 @@ const UserManagement = () => {
   // --- 3. STATE UI (MODAL) ---
   const [selectedUser, setSelectedUser] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+    onConfirm: () => {},
+  });
+
+  const closeModal = () => setModalConfig((prev) => ({ ...prev, isOpen: false }));
 
   // --- LOGIC DEBOUNCE TÌM KIẾM ---
   useEffect(() => {
@@ -76,23 +87,66 @@ const UserManagement = () => {
   // --- LOGIC HÀNH ĐỘNG ---
   const handleToggleStatus = async (userId, currentStatus) => {
     const newStatus = currentStatus === "ACTIVE" ? "BLOCKED" : "ACTIVE";
+    
+    const confirmTitle = newStatus === "BLOCKED" ? "Khóa tài khoản" : "Mở khóa tài khoản";
     const confirmMsg = newStatus === "BLOCKED"
-      ? "Bạn có chắc chắn muốn KHÓA tài khoản này?"
-      : "Bạn muốn MỞ KHÓA tài khoản này?";
+      ? "Bạn có chắc chắn muốn KHÓA tài khoản này? Người dùng sẽ không thể truy cập hệ thống."
+      : "Bạn muốn MỞ KHÓA tài khoản này? Người dùng có thể đăng nhập bình thường.";
 
-    if (!window.confirm(confirmMsg)) return;
+    // 1. BẬT MODAL HỎI XÁC NHẬN
+    setModalConfig({
+      isOpen: true,
+      type: "confirm",
+      title: confirmTitle,
+      message: confirmMsg,
+      onConfirm: () => executeUpdateStatus(userId, newStatus), // Gửi hàm thực thi vào callback
+    });
+  };
 
+  // Hàm lõi thực thi gọi API sau khi Admin đã bấm "Xác nhận" trên Modal
+  const executeUpdateStatus = async (userId, newStatus) => {
     try {
+      // 2. CHUYỂN MODAL SANG TRẠNG THÁI LOADING (Khóa màn hình, hiện spinner)
+      setModalConfig({
+        isOpen: true,
+        type: "loading",
+        title: "Đang xử lý...",
+        message: "Hệ thống đang đồng bộ cập nhật dữ liệu phân quyền tài khoản.",
+      });
+
       const token = await getToken();
       const res = await adminService.updateUserStatus(token, userId, newStatus);
+
       if (res.success) {
-        fetchUsers(); // Tải lại danh sách sau khi update thành công
+        fetchUsers(); // Tải lại danh sách tài khoản mới
+
+        // 3. HIỂN THỊ THÔNG BÁO THÀNH CÔNG VÀ CHỜ ADMIN BẤM "ĐÃ HIỂU" TO CLOSE
+        setModalConfig({
+          isOpen: true,
+          type: "success",
+          title: "Thành công!",
+          message: newStatus === "BLOCKED" 
+            ? "Tài khoản đã được khóa thành công." 
+            : "Đã mở khóa tài khoản thành công.",
+        });
       } else {
-        alert(res.message || "Có lỗi xảy ra");
+        // 4. HIỂN THỊ BÁO LỖI TỪ SERVER TRẢ VỀ
+        setModalConfig({
+          isOpen: true,
+          type: "error",
+          title: "Thao tác thất bại",
+          message: res.message || "Có lỗi xảy ra trong quá trình cập nhật.",
+        });
       }
     } catch (error) {
       console.error("Lỗi cập nhật trạng thái:", error);
-      alert("Có lỗi xảy ra khi cập nhật!");
+      // 5. HIỂN THỊ BÁO LỖI ĐƯỜNG TRUYỀN / MẠNG
+      setModalConfig({
+        isOpen: true,
+        type: "error",
+        title: "Lỗi kết nối",
+        message: "Không thể kết nối đến máy chủ. Vui lòng thử lại sau.",
+      });
     }
   };
 
@@ -412,6 +466,17 @@ const UserManagement = () => {
       {users.length > 0 && totalPages > 1 && (
         <Pagination page={page} totalPages={totalPages} totalItems={totalItems} pageSize={pageSize} onPageChange={setPage} />
       )}
+
+      <FeedbackModal
+        isOpen={modalConfig.isOpen}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onClose={closeModal}
+        onConfirm={modalConfig.onConfirm}
+        confirmText="Xác nhận"
+        cancelText="Hủy bỏ"
+      />
     </div>
   );
 };
