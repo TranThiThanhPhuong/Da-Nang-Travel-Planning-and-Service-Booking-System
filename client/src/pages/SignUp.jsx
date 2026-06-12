@@ -62,7 +62,7 @@ const SignUpPage = () => {
     {
       icon: <Users size={20} />,
       title: "Ưu đãi thành viên độc quyền",
-      color: "bg-[#004D40]/10 text-[#004D40]",
+      color: "bg-[#004D40]/10 text-black",
     },
     {
       icon: <Award size={20} />,
@@ -185,7 +185,7 @@ const SignUpPage = () => {
                   formResendCodeLink: "text-[#FFAB40]",
                 },
               }}
-              redirectUrl="/"
+              forceRedirectUrl="/auth-callback"
               signInUrl="/login"
             />
           </div>

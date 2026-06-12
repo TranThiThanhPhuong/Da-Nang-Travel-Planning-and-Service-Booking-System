@@ -5,6 +5,7 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
 import GlobalLoader from './components/GlobalLoader';
+import AuthCallback from "./components/AuthCallback";
 
 // AUTH PAGES
 import Login from "./pages/Login";
@@ -62,6 +63,7 @@ const App = () => {
           {/* AUTH ROUTES */}
           <Route path="/login" element={<Login dbUser={dbUser} />} />
           <Route path="/sign-up" element={<SignUpPage />} />
+          <Route path="/auth-callback" element={<AuthCallback />} />
 
           {/* PUBLIC ROUTES */}
           <Route path="/" element={<Home dbUser={dbUser} />} />

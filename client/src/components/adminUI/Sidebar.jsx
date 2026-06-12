@@ -97,14 +97,6 @@ const Sidebar = ({ isOpen, setIsOpen }) => {
           </NavLink>
         ))}
       </nav>
-
-      {/* Footer Section */}
-      <div className="p-3 border-t border-gray-100 space-y-1 bg-gray-50/50">
-        <button className={`flex items-center gap-3 w-full px-3 py-3 text-red-500 hover:bg-red-50 transition-all rounded-xl font-medium ${!isOpen ? "justify-center" : ""}`}>
-          <LogOut size={20} />
-          {isOpen && <span className="text-sm">Đăng xuất</span>}
-        </button>
-      </div>
     </aside>
   );
 };

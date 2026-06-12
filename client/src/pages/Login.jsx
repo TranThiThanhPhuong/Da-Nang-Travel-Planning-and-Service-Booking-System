@@ -32,7 +32,7 @@ const Login = ({ dbUser }) => {
       icon: <Map size={24} />,
       title: "Khám phá Đà Nẵng",
       desc: "Hơn 500+ dịch vụ du lịch chất lượng cao",
-      color: "bg-[#004D40]/10 text-[#004D40]",
+      color: "bg-[#004D40]/10 text-purple-500",
     },
     {
       icon: <Shield size={24} />,
@@ -169,7 +169,7 @@ const Login = ({ dbUser }) => {
                   formResendCodeLink: "text-[#FFAB40]",
                 },
               }}
-              redirectUrl="/"
+              forceRedirectUrl="/auth-callback"
               signUpUrl="/sign-up"
             />
           </div>

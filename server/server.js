@@ -46,7 +46,6 @@ const io = new Server(httpServer, {
 global.io = io;
 
 // MIDDLEWARE BẢO MẬT: Xác thực Token trước khi cho phép kết nối Socket
-// MIDDLEWARE BẢO MẬT: Xác thực Token trước khi cho phép kết nối Socket
 io.use(async (socket, next) => {
     try {
         // Lấy token từ nhiều nguồn để tránh sót (auth object hoặc headers)
@@ -134,6 +133,12 @@ app.use('/api/users', userRoutes);
 // Health Check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running' });
+});
+
+app.get('/', (req, res) => {
+    res.json({
+        message: "Da Nang Travel API is running 🚀"
+    });
 });
 
 // Bắt lỗi 404 Not Found

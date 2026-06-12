@@ -405,3 +405,76 @@ export const getAIRecommendations = async (req, res, next) => {
     return ApiResponse.send(res, 200, 'Hệ thống AI tạm thời không phản hồi.', []);
   }
 };
+
+// @desc    Lấy toàn bộ danh sách dịch vụ cho Admin (Bao gồm mọi trạng thái)
+// @route   GET /api/services/admin/all
+// @access  Private/Admin
+export const getAllServicesForAdmin = async (req, res, next) => {
+  try {
+    // Tương tự bảng Owner, Admin sẽ lấy toàn bộ và dùng .lean() để tối ưu
+    const services = await Service.find({})
+      .populate('ownerId', 'fullName email avatar clerkId')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return ApiResponse.send(res, 200, 'Lấy danh sách dịch vụ cho Admin thành công', services, {
+      count: services.length
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Admin phê duyệt hoặc từ chối dịch vụ
+// @route   PATCH /api/services/admin/:id/review
+// @access  Private/Admin
+export const reviewService = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { status, adminNotes } = req.body;
+
+    if (!['APPROVED', 'REJECTED'].includes(status)) {
+      throw new ApiError(400, "Trạng thái phê duyệt không hợp lệ");
+    }
+
+    const service = await Service.findById(id).populate('ownerId', 'fullName email clerkId');
+
+    if (!service) {
+      throw new ApiError(404, "Không tìm thấy dịch vụ");
+    }
+
+    // Cập nhật trạng thái và lý do
+    service.approvalStatus = status;
+    if (adminNotes) {
+      service.adminNotes = adminNotes;
+    }
+
+    await service.save();
+
+    // 🔔 TÍNH NĂNG BỔ SUNG: Bắn thông báo về cho Owner
+    if (service.ownerId) {
+      const isApproved = status === 'APPROVED';
+      await sendNotification({
+        recipientId: service.ownerId._id,
+        recipientRole: 'OWNER',
+        title: isApproved ? '✅ Dịch vụ đã được duyệt!' : '❌ Dịch vụ cần chỉnh sửa',
+        content: isApproved
+          ? `Chúc mừng! Dịch vụ "${service.name}" của bạn đã được hiển thị công khai trên hệ thống.`
+          : `Dịch vụ "${service.name}" của bạn đã bị từ chối. Lý do: ${adminNotes || 'Vui lòng kiểm tra lại hình ảnh hoặc nội dung.'}`,
+        category: 'SYSTEM_ALERT',
+        onClickUrl: '/owner/list-service'
+      });
+    }
+
+    return ApiResponse.send(
+      res,
+      200,
+      `Đã ${status === 'APPROVED' ? 'phê duyệt' : 'từ chối'} dịch vụ thành công`,
+      service
+    );
+  } catch (error) {
+    next(error);
+  }
+>>>>>>> Stashed changes
+>>>>>>> bd7bcbc (feat: cập nhật hệ thống)
+};
