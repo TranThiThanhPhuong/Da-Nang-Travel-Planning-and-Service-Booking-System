@@ -75,7 +75,7 @@ export const createSubscriptionPayment = async (req, res, next) => {
             cancelUrl: `${YOUR_DOMAIN}/owner/subscription/result?orderCode=${orderCode}`
         };
 
-        const paymentLinkResponse = await payOS.createPaymentLink(body);
+        const paymentLinkResponse = await payOS.paymentRequests.create(body);
 
         return ApiResponse.send(res, 200, 'Tạo link thanh toán thành công', { checkoutUrl: paymentLinkResponse.checkoutUrl });
     } catch (error) {
@@ -150,7 +150,7 @@ export const verifySubscriptionPayment = async (req, res, next) => {
             return ApiResponse.send(res, 200, 'Xác thực thanh toán thành công.', { status: 'PAID' });
         }
 
-        const paymentInfo = await payOS.getPaymentLinkInformation(Number(orderCode));
+        const paymentInfo = await payOS.paymentRequests.get(String(orderCode));
 
         if (paymentInfo.status === 'PAID' || paymentInfo.status === 'SUCCESS') {
             await processSuccessfulSaaS(orderCode);
@@ -201,7 +201,7 @@ export const cancelSubscriptionPayment = async (req, res, next) => {
         }
 
         try {
-            await payOS.cancelPaymentLink(Number(orderCode));
+            await payOS.paymentRequests.cancel(String(orderCode));
         } catch (e) {
             console.log('Lưu ý: Link PayOS đã hết hạn hoặc bị hủy trước đó.', e.message);
         }

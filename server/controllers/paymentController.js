@@ -76,7 +76,7 @@ export const createPaymentLink = async (req, res, next) => {
         };
 
         // 6. Gửi request tạo link thanh toán
-        const paymentLinkData = await payos.createPaymentLink(requestData);
+        const paymentLinkData = await payos.paymentRequests.create(requestData);
 
         return ApiResponse.send(res, 200, 'Tạo link thanh toán thành công', {
             checkoutUrl: paymentLinkData.checkoutUrl
@@ -154,7 +154,7 @@ export const verifyPayment = async (req, res, next) => {
         const orderCode = Number(booking.paymentDetails.transactionId);
 
         // Lấy trạng thái giao dịch trực tiếp từ PayOS (SDK v2)
-        const paymentInfo = await payos.getPaymentLinkInformation(orderCode);
+        const paymentInfo = await payos.paymentRequests.get(String(orderCode));
 
         if (paymentInfo.status === 'PAID' || paymentInfo.status === 'SUCCESS') {
             await processSuccessfulBooking(orderCode);
@@ -209,7 +209,7 @@ export const cancelPayment = async (req, res, next) => {
                 if (ownerApp) {
                     const { clientId, apiKey, checksumKey } = ownerApp.payos;
                     const payos = new PayOS(clientId, apiKey, checksumKey);
-                    await payos.cancelPaymentLink(Number(booking.paymentDetails.transactionId));
+                    await payos.paymentRequests.cancel(String(booking.paymentDetails.transactionId));
                 }
             } catch (e) {
                 console.log("Link PayOS đã hết hạn hoặc không thể hủy.");
