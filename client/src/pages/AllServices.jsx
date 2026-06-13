@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Search, MapPin, Star, Filter, Utensils, Bed, Ticket, ChevronRight, SlidersHorizontal, Tag, ChevronDown, Sparkles, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import api from '../hooks/axios';
 import { useAuth, useUser } from '@clerk/clerk-react';
 
 const AllServices = () => {
@@ -143,8 +144,8 @@ const AllServices = () => {
                 if (max) params.append('maxPrice', max);
             }
 
-            const response = await fetch(`/api/services?${params.toString()}`);
-            const data = await response.json();
+            const response = await api.get(`/api/services?${params.toString()}`);
+            const data = response.data;
 
             if (data.success) {
                 if (isLoadMore) {
