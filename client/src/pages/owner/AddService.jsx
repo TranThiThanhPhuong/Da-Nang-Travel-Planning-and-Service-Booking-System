@@ -15,7 +15,7 @@ import {
 import { motion } from "framer-motion";
 import { useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
-import axios from "axios";
+import axios from "../../hooks/axios";
 import MapPicker from "../../components/MapPicker";
 import { FEATURES_CONFIG } from "../../assets/features";
 

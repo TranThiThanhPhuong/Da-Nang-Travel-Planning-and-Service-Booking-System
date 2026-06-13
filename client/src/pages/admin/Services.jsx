@@ -10,7 +10,7 @@ import {
   Loader2
 } from "lucide-react";
 import { motion } from "framer-motion";
-import axios from "axios";
+import axios from "../../hooks/axios";
 import { useAuth } from "@clerk/clerk-react";
 import EmptyState from "../common/Empty";
 import Pagination from "../common/Pagination";

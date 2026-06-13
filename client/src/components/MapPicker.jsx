@@ -7,7 +7,7 @@ import {
   useMap,
 } from "react-leaflet";
 import { Navigation, Loader2, MapPin as MapPinIcon } from "lucide-react";
-import axios from "axios";
+import axios from "../hooks/axios";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 

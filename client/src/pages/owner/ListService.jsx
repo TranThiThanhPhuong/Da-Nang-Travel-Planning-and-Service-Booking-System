@@ -13,7 +13,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@clerk/clerk-react";
-import axios from "axios";
+import axios from "../../hooks/axios";
 import { useEffect } from "react";
 import { useMemo } from "react";
 import Pagination from "../common/Pagination";

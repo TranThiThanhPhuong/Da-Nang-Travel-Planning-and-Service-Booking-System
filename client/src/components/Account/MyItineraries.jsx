@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@clerk/clerk-react";
-import axios from "axios";
+import axios from "../../hooks/axios";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Calendar,
