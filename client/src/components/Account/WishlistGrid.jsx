@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../../hooks/axios'
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@clerk/clerk-react';
 import toast from 'react-hot-toast';
@@ -18,9 +18,11 @@ const WishlistGrid = () => {
                 const res = await axios.get('/api/wishlists/my-wishlists', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                setWishlist(res.data.data);
+                const data = res.data?.data || [];
+                setWishlist(Array.isArray(data) ? data : []);
             } catch (error) {
                 console.error('Lỗi khi tải danh sách yêu thích:', error);
+                setWishlist([]);
                 toast.error('Không thể tải danh sách yêu thích.');
             } finally {
                 setLoading(false);

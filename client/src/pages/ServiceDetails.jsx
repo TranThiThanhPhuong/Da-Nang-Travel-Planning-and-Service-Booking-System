@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../hooks/axios'
 import toast from 'react-hot-toast';
 import { useAuth, useUser } from '@clerk/clerk-react'; // Nhập thêm useUser
 import {
@@ -154,8 +154,10 @@ const ServiceDetails = () => {
                 const res = await axios.get('/api/wishlists/my-wishlists', {
                     headers: { Authorization: `Bearer ${token}` }
                 });
-                const savedList = res.data.data;
-                const isFound = savedList.some(item => item._id === id);
+                const savedList = res.data.data || [];
+                const isFound = savedList.some(
+                    item => item._id === id
+                );
                 setIsSaved(isFound);
             } catch (error) {
                 console.error('Lỗi khi kiểm tra trạng thái yêu thích:', error);

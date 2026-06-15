@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Zap, Crown, ArrowRight, Star, CreditCard, Receipt, Search, Filter, Calendar, ShieldCheck } from 'lucide-react';
-import axios from 'axios';
+import axios from '../../hooks/axios'
 import { useAuth, useUser } from '@clerk/clerk-react';
 import toast from 'react-hot-toast';
 import FeedbackModal from '../../components/FeedbackModal';

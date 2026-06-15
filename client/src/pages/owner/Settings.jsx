@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { CreditCard, Eye, EyeOff, Save, RefreshCw,ShieldAlert } from 'lucide-react';
 import { useAuth } from '@clerk/clerk-react';
-import axios from 'axios';
+import axios from '../../hooks/axios'
 import FeedbackModal from '../../components/FeedbackModal';
 
 const inputLabel = "text-[10px] font-black text-[#004D40]/40 uppercase tracking-[0.2em] ml-1 mb-2 block";

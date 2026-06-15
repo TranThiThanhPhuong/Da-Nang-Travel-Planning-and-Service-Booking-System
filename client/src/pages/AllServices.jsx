@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, MapPin, Star, Filter, Utensils, Bed, Ticket, ChevronRight, SlidersHorizontal, Tag, ChevronDown, Sparkles, TrendingUp, TrendingDown, Calendar } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../hooks/axios'
 import api from '../hooks/axios';
 import { useAuth, useUser } from '@clerk/clerk-react';
 

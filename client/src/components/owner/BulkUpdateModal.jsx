@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '@clerk/clerk-react';
-import axios from 'axios';
+import axios from '../../hooks/axios'
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Calendar, Save, Loader2 } from 'lucide-react';
 
