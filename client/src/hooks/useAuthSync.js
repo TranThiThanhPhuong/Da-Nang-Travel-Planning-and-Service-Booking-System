@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useUser, useAuth } from "@clerk/clerk-react";
+import api from "./axios";
 
 export const useAuthSync = () => {
   const { isLoaded, isSignedIn, user: clerkUser } = useUser();
@@ -11,18 +12,10 @@ export const useAuthSync = () => {
     const sync = async () => {
       if (isLoaded && isSignedIn && clerkUser) {
         try {
-          const token = await getToken();
-          const response = await fetch(`${import.meta.env.VITE_API_URL}/api/auth/sync`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({ clerkId: clerkUser.id }),
-          });
-          const result = await response.json();
-          if (result.success) {
-            setDbUser(result.data); // Lưu thông tin MongoDB (gồm role)
+          const response = await api.post("/api/auth/sync", { clerkId: clerkUser.id });
+          
+          if (response.data.success) {
+            setDbUser(response.data.data); 
           }
         } catch (error) {
           console.error("Lỗi đồng bộ user:", error);
@@ -36,7 +29,7 @@ export const useAuthSync = () => {
     };
 
     sync();
-  }, [isLoaded, isSignedIn, clerkUser, getToken]);
+  }, [isLoaded, isSignedIn, clerkUser]);
 
   return { dbUser, isLoading, isSignedIn };
 };

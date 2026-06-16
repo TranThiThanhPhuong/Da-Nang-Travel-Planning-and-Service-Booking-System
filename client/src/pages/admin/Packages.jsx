@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Package, Edit3, X, DollarSign, Calendar, ShieldCheck, Crown, Zap, Star } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import axios from "axios";
+import axios from "../../hooks/axios";
 import { useAuth } from "@clerk/clerk-react";
 import toast from "react-hot-toast";
 

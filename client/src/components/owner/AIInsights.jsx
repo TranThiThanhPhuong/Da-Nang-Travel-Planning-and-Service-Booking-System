@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import axios from "axios";
+import axios from "../../hooks/axios";
 import { useAuth } from "@clerk/clerk-react";
 import { Sparkles, BrainCircuit, ShieldCheck, AlertTriangle, Lightbulb } from "lucide-react";
 

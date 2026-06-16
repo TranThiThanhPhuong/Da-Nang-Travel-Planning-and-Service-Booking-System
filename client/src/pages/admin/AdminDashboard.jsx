@@ -22,6 +22,7 @@ import {
   Cell,
 } from "recharts";
 import { useAuth } from "@clerk/clerk-react";
+import api from "../../hooks/axios";
 
 const activityConfig = {
   USER_NEW: {
@@ -54,19 +55,9 @@ const AdminDashboard = () => {
 
         const token = await getToken();
 
-        const response = await fetch("/api/admin/dashboard-stats", {
-          method: "GET",
-          headers: {
-            "Authorization": `Bearer ${token}`,
-            "Content-Type": "application/json"
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error("Không thể tải dữ liệu phân tích hệ thống.");
-        }
-        const resJson = await response.json();
-        setData(resJson.data);
+        const response = await api.get("/api/admin/dashboard-stats");
+            
+        setData(response.data.data);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -75,7 +66,7 @@ const AdminDashboard = () => {
     };
 
     fetchDashboardData();
-  }, [getToken]);
+  }, []);
 
   if (loading) {
     return (

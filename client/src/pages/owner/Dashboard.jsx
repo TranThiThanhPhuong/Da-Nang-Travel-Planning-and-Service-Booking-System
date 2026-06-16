@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@clerk/clerk-react";
-import axios from "axios";
+import axios from "../../hooks/axios";
 import { Lock } from "lucide-react";
 import AIInsights from "../../components/owner/AIInsights";
 import DashboardCharts from "../../components/owner/DashboardCharts";

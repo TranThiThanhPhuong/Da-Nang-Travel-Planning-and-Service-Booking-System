@@ -24,6 +24,7 @@ import {
 import FeedbackModal from "../common/FeedbackModal";
 import RejectModal from "../common/RejectModal";
 import Pagination from "../common/Pagination"; // Import component phân trang dùng chung của hệ thống
+import api from "../../hooks/axios";
 
 const Finance = () => {
     const { getToken } = useAuth();
@@ -87,18 +88,8 @@ const Finance = () => {
             setLoading(true);
             const token = await getToken();
 
-            // Truyền đầy đủ tham số phân trang page và limit lên API
-            const res = await fetch(`/api/admin/finance/transactions?status=${filter}&search=${searchTerm}&page=${page}&limit=${pageSize}`, {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                }
-            });
-
-            if (!res.ok) throw new Error("Không thể kết nối hoặc bạn không có quyền truy cập.");
-            const resJson = await res.json();
-
+            const res = await api.get(`/api/admin/finance/transactions?status=${filter}&search=${searchTerm}&page=${page}&limit=${pageSize}`);
+            const resJson = res.data;
             setTransactions(resJson.data || []);
             setTotalItems(resJson.totalItems || 0);
             setTotalPages(resJson.totalPages || 1);
@@ -124,20 +115,7 @@ const Finance = () => {
         if (!selectedTxn) return;
         try {
             setShowConfirmPay(false);
-            const token = await getToken();
-
-            const res = await fetch(`/api/admin/finance/transactions/${selectedTxn._id}/confirm`, {
-                method: "PATCH",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-            });
-
-            if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.message || "Lỗi khi cập nhật giao dịch.");
-            }
+            const res = await api.patch(`/api/admin/finance/transactions/${selectedTxn._id}/confirm`);
 
             setFeedback({
                 isOpen: true,
@@ -167,21 +145,7 @@ const Finance = () => {
 
         try {
             setShowRefundModal(false);
-            const token = await getToken();
-
-            const res = await fetch(`/api/admin/finance/transactions/${selectedTxn._id}/refund`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({ reason }),
-            });
-
-            if (!res.ok) {
-                const errData = await res.json();
-                throw new Error(errData.message || "Lỗi khi xử lý hoàn trả tiền.");
-            }
+            const res = await api.post(`/api/admin/finance/transactions/${selectedTxn._id}/refund`, { reason });
 
             setFeedback({
                 isOpen: true,

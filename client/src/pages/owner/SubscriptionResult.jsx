@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import axios from 'axios';
+import axios from '../../hooks/axios'
 import { motion } from 'framer-motion';
 import { CheckCircle2, XCircle, Loader2, LayoutDashboard, ReceiptText, CreditCard } from 'lucide-react';
 import { useAuth } from '@clerk/clerk-react';

@@ -4,6 +4,7 @@ import { SignUp, useUser, useAuth } from "@clerk/clerk-react";
 import { motion } from "framer-motion";
 import { Sparkles, Users, Award, Zap } from "lucide-react";
 import { useAuthSync } from "../hooks/useAuthSync";
+import api from "../hooks/axios";
 
 const SignUpPage = () => {
   const { isSignedIn, user } = useUser();
@@ -15,22 +16,11 @@ const SignUpPage = () => {
     const syncUser = async () => {
       if (isSignedIn && user) {
         try {
-          const token = await getToken();
-          const response = await fetch(
-            `${import.meta.env.VITE_API_URL}/api/auth/sync`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`, // Gửi token để Backend verify
-              },
-              body: JSON.stringify({ clerkId: user.id }),
-            },
-          );
+          const response = await api.post("/api/auth/sync", { clerkId: user.id });
 
-          if (response.ok) {
+          if (response.status === 200) {
             console.log("✅ Đồng bộ User thành công");
-            navigate("/");
+              navigate("/");
           }
         } catch (error) {
           console.error("❌ Lỗi đồng bộ User:", error);
@@ -39,7 +29,7 @@ const SignUpPage = () => {
     };
 
     syncUser();
-  }, [isSignedIn, user, navigate, getToken]);
+  }, [isSignedIn, user, navigate]);
 
   useEffect(() => {
     if (isSignedIn && dbUser) {

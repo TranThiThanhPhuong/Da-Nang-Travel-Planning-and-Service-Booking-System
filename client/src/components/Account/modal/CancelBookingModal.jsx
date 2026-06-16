@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertTriangle, ShieldCheck, HelpCircle, Landmark, Phone, User, MapPin, Building, CheckSquare, Square, PenTool } from 'lucide-react';
-import axios from 'axios';
+import axios from '../../../hooks/axios'
 
 const CancelBookingModal = ({ isOpen, onClose, booking, onConfirmSubmit }) => {
     const [reason, setReason] = useState('');

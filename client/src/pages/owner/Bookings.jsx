@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@clerk/clerk-react";
-import axios from "axios";
+import axios from "../../hooks/axios";
 import Pagination from "../common/Pagination";
 import EmptyState from "../common/Empty";
 import BookingDetailModal from "./BookingDetailModal";

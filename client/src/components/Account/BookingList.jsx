@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axios from '../../hooks/axios'
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@clerk/clerk-react';
 import toast from 'react-hot-toast';

@@ -1,3 +1,4 @@
+import api from "../hooks/axios";
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const ADMIN_USERS_URL = `${BASE_URL}/api/admin/users`;
@@ -10,38 +11,19 @@ export const adminService = {
         );
         const queryString = new URLSearchParams(cleanParams).toString();
 
-        const response = await fetch(`${ADMIN_USERS_URL}?${queryString}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        return response.json();
+        const response = await api.get(`/api/admin/users?${queryString}`);
+        return response.data;
     },
 
     // 2. Lấy chi tiết
     getUserDetails: async (token, userId) => {
-        const response = await fetch(`${ADMIN_USERS_URL}/${userId}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            }
-        });
-        return response.json();
+        const response = await api.get(`/api/admin/users/${userId}`);
+        return response.data;
     },
 
     // 3. Khóa/Mở khóa
     updateUserStatus: async (token, userId, status) => {
-        const response = await fetch(`${ADMIN_USERS_URL}/${userId}/status`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ status })
-        });
-        return response.json();
+        const response = await api.patch(`/api/admin/users/${userId}/status`, { status });
+        return response.data;
     }
 };

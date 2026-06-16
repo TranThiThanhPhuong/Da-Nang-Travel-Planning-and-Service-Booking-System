@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, Star, Camera, Loader2, AlertCircle } from "lucide-react";
-import axios from "axios";
+import axios from "../../hooks/axios";
 
 const ReviewModal = ({ isOpen, onClose, booking, onSuccess, getToken }) => {
   if (!isOpen || !booking) return null;

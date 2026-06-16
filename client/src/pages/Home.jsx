@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Search, MapPin, Calendar, Utensils, Bed, Ticket, ArrowRight, Star, Sparkles, ChevronDown, Filter, Crown, ChevronLeft, ChevronRight, Bot } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useUser, useAuth } from "@clerk/clerk-react";
-import axios from 'axios';
+import axios from '../hooks/axios'
 import LoginPrompt from "../components/LoginPrompt";
 
 const Home = ({ dbUser }) => {

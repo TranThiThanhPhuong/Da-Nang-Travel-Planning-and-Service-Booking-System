@@ -24,7 +24,7 @@ import {
   RefreshCcw,
   EyeOff,
 } from "lucide-react";
-import axios from "axios";
+import axios from "../hooks/axios";
 import { useAuth } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
 import ApplicationDetailModal from "./modalsUser/ApplicationDetailModal";

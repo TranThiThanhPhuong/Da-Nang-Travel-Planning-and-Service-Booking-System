@@ -1,6 +1,8 @@
-import React from "react";
+import React, {useEffect} from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { useAuthSync } from "./hooks/useAuthSync";
+import { useAuth } from "@clerk/clerk-react";
+import { setupInterceptor } from "./hooks/axios";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import ProtectedRoute from "./components/ProtectedRoute";
@@ -44,6 +46,10 @@ import AccountDashboard from "./pages/AccountDashboard";
 const App = () => {
   const location = useLocation();
   const { dbUser, isLoading } = useAuthSync();
+  const { getToken } = useAuth();
+  useEffect(() => {
+    setupInterceptor(getToken);
+  }, [getToken]);
   const isAuthPath =
     location.pathname === "/login" || location.pathname === "/sign-up";
   const isOwnerPath = location.pathname.startsWith("/owner");

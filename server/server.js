@@ -34,7 +34,7 @@ const app = express();
 const httpServer = createServer(app);
 
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
-
+console.log("FRONTEND_URL:", FRONTEND_URL);
 const io = new Server(httpServer, {
     cors: {
         origin: FRONTEND_URL,
