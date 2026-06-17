@@ -108,9 +108,9 @@ const ServiceDetails = () => {
     const [availableSlots, setAvailableSlots] = useState(null);
     const [showOwnerModal, setShowOwnerModal] = useState(false);
 
-    const [custName, setCustName] = useState('');
-    const [custPhone, setCustPhone] = useState('');
-    const [custEmail, setCustEmail] = useState('');
+    const [custName, setCustName] = useState(() => localStorage.getItem("cust_name") || "");
+    const [custPhone, setCustPhone] = useState(() => localStorage.getItem("cust_phone") || "");
+    const [custEmail, setCustEmail] = useState(() => localStorage.getItem("cust_email") || "");
     const [custNote, setCustNote] = useState('');
 
     const [modalConfig, setModalConfig] = useState({
@@ -319,6 +319,18 @@ const ServiceDetails = () => {
         minDate.setDate(minDate.getDate() + 1);
         return minDate.toISOString().split('T')[0];
     };
+
+    useEffect(() => {
+        localStorage.setItem("cust_name", custName);
+    }, [custName]);
+
+    useEffect(() => {
+        localStorage.setItem("cust_phone", custPhone);
+    }, [custPhone]);
+
+    useEffect(() => {
+        localStorage.setItem("cust_email", custEmail);
+    }, [custEmail]);
 
     const handleBookingClick = () => {
         if (!userId) {
