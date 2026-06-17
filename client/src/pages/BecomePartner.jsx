@@ -23,6 +23,9 @@ import {
   FileCheck,
   RefreshCcw,
   EyeOff,
+  TrendingUp,
+  Zap,
+  Handshake,
 } from "lucide-react";
 import axios from "../hooks/axios";
 import { useAuth } from "@clerk/clerk-react";
@@ -368,23 +371,23 @@ const BecomePartner = ({ dbUser }) => {
         {(type === "CCCD"
           ? files[type].length < 2
           : files[type].length < 15) && (
-          <label className="border-2 border-dashed border-[#E0F2F1] rounded-tr-2xl rounded-bl-2xl aspect-video flex flex-col items-center justify-center cursor-pointer hover:border-[#FFAB40] hover:bg-gray-50 transition-all group">
-            <Icon
-              className="text-[#004D40]/20 group-hover:text-[#FFAB40] mb-2"
-              size={24}
-            />
-            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
-              Thêm ảnh
-            </span>
-            <input
-              type="file"
-              multiple
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => handleFileChange(e, type)}
-            />
-          </label>
-        )}
+            <label className="border-2 border-dashed border-[#E0F2F1] rounded-tr-2xl rounded-bl-2xl aspect-video flex flex-col items-center justify-center cursor-pointer hover:border-[#FFAB40] hover:bg-gray-50 transition-all group">
+              <Icon
+                className="text-[#004D40]/20 group-hover:text-[#FFAB40] mb-2"
+                size={24}
+              />
+              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
+                Thêm ảnh
+              </span>
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => handleFileChange(e, type)}
+              />
+            </label>
+          )}
       </div>
     </div>
   );
@@ -474,20 +477,18 @@ const BecomePartner = ({ dbUser }) => {
                   className="relative z-10 flex flex-col items-center"
                 >
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg mb-2 transition-all ${
-                      step.done
-                        ? "bg-[#00C853] text-white"
-                        : step.active
-                          ? "bg-[#FFAB40] text-white animate-pulse"
-                          : "bg-white text-gray-300 border-2 border-gray-200"
-                    }`}
+                    className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg mb-2 transition-all ${step.done
+                      ? "bg-[#00C853] text-white"
+                      : step.active
+                        ? "bg-[#FFAB40] text-white animate-pulse"
+                        : "bg-white text-gray-300 border-2 border-gray-200"
+                      }`}
                   >
                     <step.icon size={20} />
                   </div>
                   <span
-                    className={`text-xs font-bold uppercase ${
-                      step.active ? "text-[#FFAB40]" : "text-gray-400"
-                    }`}
+                    className={`text-xs font-bold uppercase ${step.active ? "text-[#FFAB40]" : "text-gray-400"
+                      }`}
                   >
                     {step.label}
                   </span>
@@ -779,8 +780,8 @@ const BecomePartner = ({ dbUser }) => {
         >
           {/* Lợi ích 1 */}
           <div className="bg-white border border-gray-100 p-6 rounded-tr-[30px] rounded-bl-[30px] rounded-tl-xl rounded-br-xl shadow-[0_10px_30px_rgba(0,0,0,0.02)] group hover:shadow-[0_10px_30px_rgba(0,77,64,0.05)] transition-all duration-300">
-            <div className="w-12 h-12 bg-[#E0F2F1] text-[#004D40] rounded-xl flex items-center justify-center font-bold text-lg mb-4 group-hover:scale-110 transition-transform">
-              📈
+            <div className="w-12 h-12 bg-[#E0F2F1] text-[#004D40] rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm">
+              <TrendingUp size={24} strokeWidth={2.5} />
             </div>
             <h3 className="font-cormorant font-bold text-xl text-[#004D40] mb-2">
               Bùng nổ Doanh thu
@@ -793,8 +794,8 @@ const BecomePartner = ({ dbUser }) => {
 
           {/* Lợi ích 2 */}
           <div className="bg-white border border-gray-100 p-6 rounded-tr-[30px] rounded-bl-[30px] rounded-tl-xl rounded-br-xl shadow-[0_10px_30px_rgba(0,0,0,0.02)] group hover:shadow-[0_10px_30px_rgba(0,77,64,0.05)] transition-all duration-300">
-            <div className="w-12 h-12 bg-amber-50 text-[#FFAB40] rounded-xl flex items-center justify-center font-bold text-lg mb-4 group-hover:scale-110 transition-transform">
-              ⚡
+            <div className="w-12 h-12 bg-amber-50 text-[#FFAB40] rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm">
+              <Zap size={24} strokeWidth={2.5} className="fill-[#FFAB40]/20" />
             </div>
             <h3 className="font-cormorant font-bold text-xl text-[#004D40] mb-2">
               Quản lý Tồn kho Thông minh
@@ -807,8 +808,8 @@ const BecomePartner = ({ dbUser }) => {
 
           {/* Lợi ích 3 */}
           <div className="bg-white border border-gray-100 p-6 rounded-tr-[30px] rounded-bl-[30px] rounded-tl-xl rounded-br-xl shadow-[0_10px_30px_rgba(0,0,0,0.02)] group hover:shadow-[0_10px_30px_rgba(0,77,64,0.05)] transition-all duration-300">
-            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold text-lg mb-4 group-hover:scale-110 transition-transform">
-              🤝
+            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform shadow-sm">
+              <Handshake size={24} strokeWidth={2.5} />
             </div>
             <h3 className="font-cormorant font-bold text-xl text-[#004D40] mb-2">
               Đối soát Tài chính Minh bạch
@@ -871,71 +872,6 @@ const BecomePartner = ({ dbUser }) => {
               <p className="text-[11px] text-gray-400 font-medium max-w-[200px] mx-auto">
                 Nhận thông báo chấp thuận, mở khóa tính năng đối tác và bắt đầu
                 đón khách!
-              </p>
-            </div>
-          </div>
-        </motion.div>
-        {/* ================= KHỐI THỐNG KÊ ĐỘNG (SOCIAL PROOF STATS) ================= */}
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.15 }}
-          className="bg-[#004D40] text-white rounded-tr-[40px] rounded-bl-[40px] rounded-tl-2xl rounded-br-2xl p-8 my-10 shadow-[0_20px_50px_rgba(0,77,64,0.15)] relative overflow-hidden"
-        >
-          {/* Các đường vân trang trí chìm phía sau tạo chiều sâu */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
-          <div className="absolute -bottom-10 -left-10 w-40 h-40 bg-[#FFAB40]/10 rounded-full blur-3xl pointer-events-none"></div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center divide-y md:divide-y-0 md:divide-x divide-white/10">
-            {/* Chỉ số 1 */}
-            <div className="pt-4 md:pt-0">
-              <h3 className="text-3xl md:text-4xl font-cormorant font-black text-[#FFAB40]">
-                250+
-              </h3>
-              <p className="text-[10px] md:text-xs text-white/70 font-bold uppercase tracking-widest mt-1">
-                Chủ doanh nghiệp
-              </p>
-              <p className="text-[9px] text-teal-200/50 mt-0.5 font-medium">
-                Đã kích hoạt gian hàng
-              </p>
-            </div>
-
-            {/* Chỉ số 2 */}
-            <div className="pt-4 md:pt-0">
-              <h3 className="text-3xl md:text-4xl font-cormorant font-black text-white">
-                45,000+
-              </h3>
-              <p className="text-[10px] md:text-xs text-white/70 font-bold uppercase tracking-widest mt-1">
-                Người dùng tích cực
-              </p>
-              <p className="text-[9px] text-teal-200/50 mt-0.5 font-medium">
-                Tìm kiếm dịch vụ mỗi tháng
-              </p>
-            </div>
-
-            {/* Chỉ số 3 */}
-            <div className="pt-4 md:pt-0">
-              <h3 className="text-3xl md:text-4xl font-cormorant font-black text-white">
-                15,000+
-              </h3>
-              <p className="text-[10px] md:text-xs text-white/70 font-bold uppercase tracking-widest mt-1">
-                Chuyến đi được lên lịch
-              </p>
-              <p className="text-[9px] text-teal-200/50 mt-0.5 font-medium">
-                Thông qua công cụ TripPlanner
-              </p>
-            </div>
-
-            {/* Chỉ số 4 */}
-            <div className="pt-4 md:pt-0">
-              <h3 className="text-3xl md:text-4xl font-cormorant font-black text-[#FFAB40]">
-                98%
-              </h3>
-              <p className="text-[10px] md:text-xs text-white/70 font-bold uppercase tracking-widest mt-1">
-                Tỷ lệ hài lòng
-              </p>
-              <p className="text-[9px] text-teal-200/50 mt-0.5 font-medium">
-                Từ các đối tác vận hành SaaS
               </p>
             </div>
           </div>
@@ -1095,6 +1031,19 @@ const BecomePartner = ({ dbUser }) => {
                   >
                     <span>Chưa có key? Hướng dẫn lấy Key PayOS ↗</span>
                   </a>
+                </div>
+
+                {/* HƯỚNG DẪN WEBHOOK */}
+                <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-xl">
+                  <p className="text-xs font-bold text-orange-800 mb-1 flex items-center gap-1">
+                    <AlertCircle size={14} /> BẮT BUỘC: CẤU HÌNH WEBHOOK CHỐT ĐƠN TỰ ĐỘNG
+                  </p>
+                  <p className="text-[11px] text-orange-700 leading-relaxed">
+                    Sau khi lấy 3 Key bên dưới, bạn phải copy đường link API này và dán vào phần <strong>Cài đặt Webhook</strong> trên hệ thống PayOS để đơn hàng của khách được tự động xác nhận khi chuyển khoản xong:
+                  </p>
+                  <code className="block mt-2 bg-white px-3 py-2 rounded text-[#004D40] font-mono text-[11px] font-bold border border-orange-100 select-all cursor-copy">
+                    https://d-pulse-server.onrender.com/api/payments/webhook/booking
+                  </code>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
