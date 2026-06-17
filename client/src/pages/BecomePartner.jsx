@@ -191,6 +191,7 @@ const BecomePartner = ({ dbUser }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
     const isValid = validateAll();
     if (!isValid) {
       setModalConfig({
@@ -292,23 +293,45 @@ const BecomePartner = ({ dbUser }) => {
       });
 
       setStatus(res.data.data);
+
       setModalConfig({
         isOpen: true,
         type: "success",
         title: "Thành công",
         message: "Đơn đăng ký của bạn đã được gửi và đang chờ Admin phê duyệt!",
       });
-      handleCreateNew(); // Xóa sạch form sau khi gửi thành công
+
+      // chỉ xóa input, không reset status
+      setFormData({
+        businessName: "",
+        businessAddress: "",
+        phoneNumber: "",
+        bankName: "",
+        accountNumber: "",
+        accountHolderName: "",
+        clientId: "",
+        apiKey: "",
+        checksumKey: "",
+      });
+
+      setFiles({
+        CCCD: [],
+        BUSINESS_LICENSE: [],
+        SERVICE_IMAGE: [],
+      });
     } catch (error) {
       const errMsg =
         error.response?.data?.message ||
         "Có lỗi xảy ra trong quá trình gửi đơn.";
+
       setModalConfig({
         isOpen: true,
         type: "error",
         title: "Thất bại",
         message: errMsg,
       });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -371,23 +394,23 @@ const BecomePartner = ({ dbUser }) => {
         {(type === "CCCD"
           ? files[type].length < 2
           : files[type].length < 15) && (
-            <label className="border-2 border-dashed border-[#E0F2F1] rounded-tr-2xl rounded-bl-2xl aspect-video flex flex-col items-center justify-center cursor-pointer hover:border-[#FFAB40] hover:bg-gray-50 transition-all group">
-              <Icon
-                className="text-[#004D40]/20 group-hover:text-[#FFAB40] mb-2"
-                size={24}
-              />
-              <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
-                Thêm ảnh
-              </span>
-              <input
-                type="file"
-                multiple
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => handleFileChange(e, type)}
-              />
-            </label>
-          )}
+          <label className="border-2 border-dashed border-[#E0F2F1] rounded-tr-2xl rounded-bl-2xl aspect-video flex flex-col items-center justify-center cursor-pointer hover:border-[#FFAB40] hover:bg-gray-50 transition-all group">
+            <Icon
+              className="text-[#004D40]/20 group-hover:text-[#FFAB40] mb-2"
+              size={24}
+            />
+            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tighter">
+              Thêm ảnh
+            </span>
+            <input
+              type="file"
+              multiple
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => handleFileChange(e, type)}
+            />
+          </label>
+        )}
       </div>
     </div>
   );
@@ -477,18 +500,20 @@ const BecomePartner = ({ dbUser }) => {
                   className="relative z-10 flex flex-col items-center"
                 >
                   <div
-                    className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg mb-2 transition-all ${step.done
-                      ? "bg-[#00C853] text-white"
-                      : step.active
-                        ? "bg-[#FFAB40] text-white animate-pulse"
-                        : "bg-white text-gray-300 border-2 border-gray-200"
-                      }`}
+                    className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg mb-2 transition-all ${
+                      step.done
+                        ? "bg-[#00C853] text-white"
+                        : step.active
+                          ? "bg-[#FFAB40] text-white animate-pulse"
+                          : "bg-white text-gray-300 border-2 border-gray-200"
+                    }`}
                   >
                     <step.icon size={20} />
                   </div>
                   <span
-                    className={`text-xs font-bold uppercase ${step.active ? "text-[#FFAB40]" : "text-gray-400"
-                      }`}
+                    className={`text-xs font-bold uppercase ${
+                      step.active ? "text-[#FFAB40]" : "text-gray-400"
+                    }`}
                   >
                     {step.label}
                   </span>
@@ -1036,10 +1061,14 @@ const BecomePartner = ({ dbUser }) => {
                 {/* HƯỚNG DẪN WEBHOOK */}
                 <div className="mb-6 p-4 bg-orange-50 border border-orange-200 rounded-xl">
                   <p className="text-xs font-bold text-orange-800 mb-1 flex items-center gap-1">
-                    <AlertCircle size={14} /> BẮT BUỘC: CẤU HÌNH WEBHOOK CHỐT ĐƠN TỰ ĐỘNG
+                    <AlertCircle size={14} /> BẮT BUỘC: CẤU HÌNH WEBHOOK CHỐT
+                    ĐƠN TỰ ĐỘNG
                   </p>
                   <p className="text-[11px] text-orange-700 leading-relaxed">
-                    Sau khi lấy 3 Key bên dưới, bạn phải copy đường link API này và dán vào phần <strong>Cài đặt Webhook</strong> trên hệ thống PayOS để đơn hàng của khách được tự động xác nhận khi chuyển khoản xong:
+                    Sau khi lấy 3 Key bên dưới, bạn phải copy đường link API này
+                    và dán vào phần <strong>Cài đặt Webhook</strong> trên hệ
+                    thống PayOS để đơn hàng của khách được tự động xác nhận khi
+                    chuyển khoản xong:
                   </p>
                   <code className="block mt-2 bg-white px-3 py-2 rounded text-[#004D40] font-mono text-[11px] font-bold border border-orange-100 select-all cursor-copy">
                     https://d-pulse-server.onrender.com/api/payments/webhook/booking
@@ -1189,6 +1218,19 @@ const BecomePartner = ({ dbUser }) => {
           </form>
         </div>
       </div>
+      <FeedbackModal
+        isOpen={modalConfig.isOpen}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        onClose={() =>
+          setModalConfig({
+            ...modalConfig,
+            isOpen: false,
+          })
+        }
+        onConfirm={modalConfig.onConfirm}
+      />
     </div>
   );
 };
