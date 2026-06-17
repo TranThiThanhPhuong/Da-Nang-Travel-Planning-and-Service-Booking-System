@@ -400,9 +400,9 @@ const ServiceDetails = () => {
     const bentoImages = Array(4).fill(null).map((_, i) => lightboxImages[i] || lightboxImages[0] || '');
     const featuresList = extractAllFeatures();
 
-    const unitLabel = service.type === 'HOTEL' ? 'Số lượng phòng' : service.type === 'RESTAURANT' ? 'Số người' : 'Số vé';
-    const actionLabel = service.type === 'HOTEL' ? 'Đặt phòng' : service.type === 'RESTAURANT' ? 'Đặt bàn' : 'Mua vé';
-    const priceUnitLabel = service.type === 'HOTEL' ? '/ đêm' : service.type === 'RESTAURANT' ? '/ người' : '/ vé';
+    const unitLabel = service.type === 'HOTEL' ? 'Số lượng phòng' : service.type === 'RESTAURANT' ? 'Số lượng (Bàn/Người)' : 'Số vé';
+    const actionLabel = service.type === 'HOTEL' ? 'Đặt phòng' : service.type === 'RESTAURANT' ? 'Đặt chỗ' : 'Mua vé';
+    const priceUnitLabel = service.type === 'HOTEL' ? '/ đêm' : service.type === 'RESTAURANT' ? '/ đơn vị' : '/ vé';
 
     const dateInputClasses = "w-full bg-transparent border border-[#E0F2F1] rounded-tr-xl rounded-bl-xl pl-2 pr-8 py-3 outline-none focus:ring-2 focus:ring-[#FFAB40]/50 font-bold text-sm tracking-tighter text-[#004D40] cursor-pointer relative z-10 [&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:w-full [&::-webkit-calendar-picker-indicator]:h-full [&::-webkit-calendar-picker-indicator]:cursor-pointer";
 

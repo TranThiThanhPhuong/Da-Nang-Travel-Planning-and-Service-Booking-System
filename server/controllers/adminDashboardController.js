@@ -11,43 +11,42 @@ export const getDashboardStats = async (req, res, next) => {
             User.countDocuments({ role: 'USER' }),
             User.countDocuments({ role: 'OWNER' }),
             OwnerApplication.countDocuments({ status: 'PENDING' }),
-            SubscriptionTransaction.find({ status: 'PAID' })
+            SubscriptionTransaction.find({ status: 'PAID' }) // Lấy toàn bộ đơn PAID
         ]);
 
-        // Tính tổng doanh thu hệ thống từ các giao dịch thành công
+        // Tính tổng doanh thu hệ thống
         const totalRevenue = totalPaidTxns.reduce((sum, tx) => sum + tx.amount, 0);
 
-        // 2. Doanh thu hệ thống theo tháng (6 tháng gần nhất)
-        const sixMonthsAgo = new Date();
-        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 5);
-        sixMonthsAgo.setDate(1);
+        // 2. TỐI ƯU BIỂU ĐỒ: Xử lý nhóm theo tháng bằng Javascript (Chống lỗi Mock Data)
+        const revenueMap = {};
 
-        const revenueChartData = await SubscriptionTransaction.aggregate([
-            {
-                $match: {
-                    status: 'PAID',
-                    createdAt: { $gte: sixMonthsAgo }
-                }
-            },
-            {
-                $group: {
-                    _id: {
-                        year: { $year: '$createdAt' },
-                        month: { $month: '$createdAt' }
-                    },
-                    revenue: { $sum: '$amount' }
-                }
-            },
-            { $sort: { '_id.year': 1, '_id.month': 1 } }
-        ]);
+        // Khởi tạo khung 6 tháng gần nhất (Mặc định doanh thu = 0 để biểu đồ không bị gãy)
+        for (let i = 5; i >= 0; i--) {
+            const d = new Date();
+            d.setMonth(d.getMonth() - i);
+            const monthStr = `${d.getMonth() + 1}/${d.getFullYear()}`;
+            revenueMap[monthStr] = 0;
+        }
 
-        // Format lại dữ liệu biểu đồ doanh thu dạng "Tháng MM/YYYY"
-        const formattedRevenueData = revenueChartData.map(item => ({
-            month: `${item._id.month}/${item._id.year}`,
-            revenue: item.revenue
+        // Đổ dữ liệu các đơn PAID vào khung tháng
+        totalPaidTxns.forEach(tx => {
+            // Bọc new Date() để ép kiểu an toàn: Xử lý mượt mà cả ISO Date lẫn String
+            const date = new Date(tx.paidAt || tx.createdAt || Date.now());
+            const monthStr = `${date.getMonth() + 1}/${date.getFullYear()}`;
+
+            // Nếu tháng của đơn hàng khớp với 1 trong 6 tháng gần nhất thì cộng tiền
+            if (revenueMap[monthStr] !== undefined) {
+                revenueMap[monthStr] += tx.amount;
+            }
+        });
+
+        // Chuyển Object thành Array cho Frontend Recharts
+        const formattedRevenueData = Object.keys(revenueMap).map(month => ({
+            month,
+            revenue: revenueMap[month]
         }));
 
-        // 3. Phân bổ dịch vụ (HOTEL, RESTAURANT, ACTIVITY)
+        // 3. Phân bổ dịch vụ (HOTEL, RESTAURANT, ACTIVITY) - GIỮ NGUYÊN CODE CŨ CỦA BẠN TRỞ XUỐNG
         const serviceDistribution = await Service.aggregate([
             {
                 $group: {
